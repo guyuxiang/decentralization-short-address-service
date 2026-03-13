@@ -7,7 +7,6 @@ import (
 )
 
 const (
-	MaxLUrlLength       = 2048
 	DefaultRentDuration = 365 * 24 * time.Hour
 	GracePeriod         = 7 * 24 * time.Hour
 )

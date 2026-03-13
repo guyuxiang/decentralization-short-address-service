@@ -164,10 +164,11 @@ func queryOwnerSUrls(ctx sdk.Context, path []string, req abci.RequestQuery, keep
 	}
 
 	ownerStr := path[0]
-	owner, err := sdk.AccAddressFromBech32(ownerStr)
-	if err != nil {
+	addr, addrErr := sdk.AccAddressFromBech32(ownerStr)
+	if addrErr != nil {
 		return nil, sdk.ErrInvalidAddress(ownerStr)
 	}
+	owner := addr
 
 	page := DefaultPage
 	limit := DefaultLimit

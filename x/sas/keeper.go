@@ -218,7 +218,10 @@ func (k Keeper) GetAllExpiredWithGracePeriod(ctx sdk.Context) []ExpiredSUrl {
 }
 
 func (k Keeper) IsBlackListed(url string) bool {
-	bl := k.getBlackListFromStore()
+	bl := GlobalBlackList
+	if bl == nil {
+		return false
+	}
 	if bl.URLs[url] {
 		return true
 	}
@@ -232,13 +235,6 @@ func (k Keeper) IsBlackListed(url string) bool {
 		}
 	}
 	return false
-}
-
-func (k Keeper) getBlackListFromStore() BlackList {
-	return BlackList{
-		URLs:    make(map[string]bool),
-		Domains: make(map[string]bool),
-	}
 }
 
 func (k Keeper) GetBlackList(ctx sdk.Context) BlackList {

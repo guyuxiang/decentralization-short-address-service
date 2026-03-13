@@ -92,6 +92,7 @@ func NewsasApp(logger log.Logger, db dbm.DB) *sasApp {
 		app.bankKeeper,
 		app.keySAS,
 		app.cdc,
+		"./data",
 	)
 
 	// The AnteHandler handles signature verification and transaction pre-processing

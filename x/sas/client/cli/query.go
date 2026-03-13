@@ -67,9 +67,8 @@ func GetCmdSUrls(queryRoute string, cdc *codec.Codec) *cobra.Command {
 				return nil
 			}
 
-			var out sas.QueryResPage
-			cdc.MustUnmarshalJSON(res, &out)
-			return cliCtx.PrintOutput(out)
+			fmt.Println(string(res))
+			return nil
 		},
 	}
 }
@@ -89,9 +88,8 @@ func GetCmdOwnerSUrls(queryRoute string, cdc *codec.Codec) *cobra.Command {
 				return nil
 			}
 
-			var out sas.QueryResPage
-			cdc.MustUnmarshalJSON(res, &out)
-			return cliCtx.PrintOutput(out)
+			fmt.Println(string(res))
+			return nil
 		},
 	}
 }
@@ -110,7 +108,8 @@ func GetCmdStats(queryRoute string, cdc *codec.Codec) *cobra.Command {
 				return nil
 			}
 
-			return cliCtx.PrintOutput(res)
+			fmt.Println(string(res))
+			return nil
 		},
 	}
 }

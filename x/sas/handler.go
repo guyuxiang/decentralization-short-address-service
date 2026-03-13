@@ -7,27 +7,6 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-const (
-	EventTypeBuySUrl   = "buy_sUrl"
-	EventTypeSetLUrl   = "set_lUrl"
-	EventTypeSetSell   = "set_sell"
-	EventTypeSetPrice  = "set_price"
-	EventTypeRenew     = "renew"
-	EventTypeExpire    = "expire"
-	EventTypeEscrow    = "escrow"
-	EventTypeBlackList = "blacklist"
-
-	AttributeKeySUrl       = "sUrl"
-	AttributeKeyLUrl       = "lUrl"
-	AttributeKeyOwner      = "owner"
-	AttributeKeyBuyer      = "buyer"
-	AttributeKeyPrice      = "price"
-	AttributeKeyIsSell     = "isSell"
-	AttributeKeyExpiration = "expiration"
-	AttributeKeyFee        = "fee"
-	AttributeKeyStatus     = "status"
-)
-
 func NewHandler(keeper Keeper) sdk.Handler {
 	return func(ctx sdk.Context, msg sdk.Msg) sdk.Result {
 		switch msg := msg.(type) {
@@ -73,21 +52,11 @@ func handleMsgSetLUrl(ctx sdk.Context, keeper Keeper, msg MsgSetLUrl) sdk.Result
 	}
 
 	keeper.SetLUrl(ctx, msg.SUrl, msg.LUrl)
-
-	ctx.EventManager().EmitEvent(
-		sdk.NewEvent(EventTypeSetLUrl,
-			sdk.NewAttribute(AttributeKeySUrl, msg.SUrl),
-			sdk.NewAttribute(AttributeKeyLUrl, msg.LUrl),
-			sdk.NewAttribute(AttributeKeyOwner, msg.Owner.String()),
-		),
-	)
-
 	return sdk.Result{}
 }
 
 func handleMsgBuySUrl(ctx sdk.Context, keeper Keeper, msg MsgBuySUrl) sdk.Result {
 	fee := calculateFee(msg.Bid)
-	totalCost := msg.Bid.Add(fee)
 
 	if len(msg.SUrl) != 0 {
 		if CheckSUrlExist(ctx, keeper, msg.SUrl) {
@@ -97,31 +66,31 @@ func handleMsgBuySUrl(ctx sdk.Context, keeper Keeper, msg MsgBuySUrl) sdk.Result
 				return txUrl(ctx, keeper, msg, fee)
 			}
 		}
-		_, _, err := keeper.coinKeeper.SubtractCoins(ctx, msg.Buyer, totalCost)
+		_, _, err := keeper.coinKeeper.SubtractCoins(ctx, msg.Buyer, msg.Bid)
 		if err != nil {
-			return sdk.ErrInsufficientCoins("Buyer does not have enough coins").Result()
+			return sdk.ErrInsufficientCoins("Buyer does not have enough coins for bid").Result()
+		}
+		_, _, err = keeper.coinKeeper.SubtractCoins(ctx, msg.Buyer, fee)
+		if err != nil {
+			return sdk.ErrInsufficientCoins("Buyer does not have enough coins for fee").Result()
 		}
 		keeper.StoreLAddress(ctx, msg.SUrl, msg.Buyer, msg.Bid, DefaultRentDuration)
 		keeper.AddToBloomFilter(msg.SUrl)
 	} else {
 		newSUrl := ApplyShortUrl(ctx, keeper)
-		_, _, err := keeper.coinKeeper.SubtractCoins(ctx, msg.Buyer, totalCost)
+		_, _, err := keeper.coinKeeper.SubtractCoins(ctx, msg.Buyer, msg.Bid)
 		if err != nil {
 			rullBackNumber()
-			return sdk.ErrInsufficientCoins("Buyer does not have enough coins").Result()
+			return sdk.ErrInsufficientCoins("Buyer does not have enough coins for bid").Result()
+		}
+		_, _, err = keeper.coinKeeper.SubtractCoins(ctx, msg.Buyer, fee)
+		if err != nil {
+			rullBackNumber()
+			return sdk.ErrInsufficientCoins("Buyer does not have enough coins for fee").Result()
 		}
 		keeper.StoreLAddress(ctx, newSUrl, msg.Buyer, msg.Bid, DefaultRentDuration)
 		keeper.AddToBloomFilter(newSUrl)
 	}
-
-	ctx.EventManager().EmitEvent(
-		sdk.NewEvent(EventTypeBuySUrl,
-			sdk.NewAttribute(AttributeKeySUrl, msg.SUrl),
-			sdk.NewAttribute(AttributeKeyBuyer, msg.Buyer.String()),
-			sdk.NewAttribute(AttributeKeyPrice, msg.Bid.String()),
-			sdk.NewAttribute(AttributeKeyExpiration, time.Now().Add(DefaultRentDuration).Format(time.RFC3339)),
-		),
-	)
 
 	return sdk.Result{}
 }
@@ -138,7 +107,6 @@ func txUrl(ctx sdk.Context, keeper Keeper, msg MsgBuySUrl, fee sdk.Coins) sdk.Re
 		return sdk.ErrInsufficientCoins("Bid not high enough").Result()
 	}
 
-	totalCost := msg.Bid.Add(fee)
 	_, err := keeper.coinKeeper.SendCoins(ctx, msg.Buyer, keeper.GetOwner(ctx, msg.SUrl), msg.Bid)
 	if err != nil {
 		return sdk.ErrInsufficientCoins("Buyer does not have enough coins").Result()
@@ -146,16 +114,6 @@ func txUrl(ctx sdk.Context, keeper Keeper, msg MsgBuySUrl, fee sdk.Coins) sdk.Re
 
 	keeper.SetOwner(ctx, msg.SUrl, msg.Buyer)
 	keeper.SetPrice(ctx, msg.SUrl, msg.Bid)
-
-	ctx.EventManager().EmitEvent(
-		sdk.NewEvent(EventTypeBuySUrl,
-			sdk.NewAttribute(AttributeKeySUrl, msg.SUrl),
-			sdk.NewAttribute(AttributeKeyBuyer, msg.Buyer.String()),
-			sdk.NewAttribute(AttributeKeyOwner, keeper.GetOwner(ctx, msg.SUrl).String()),
-			sdk.NewAttribute(AttributeKeyPrice, msg.Bid.String()),
-		),
-	)
-
 	return sdk.Result{}
 }
 
@@ -170,15 +128,6 @@ func handleMsgSetSell(ctx sdk.Context, keeper Keeper, msg MsgSetSell) sdk.Result
 		return sdk.ErrUnauthorized("SUrl has expired").Result()
 	}
 	keeper.SetSell(ctx, msg.SUrl, msg.IsSell)
-
-	ctx.EventManager().EmitEvent(
-		sdk.NewEvent(EventTypeSetSell,
-			sdk.NewAttribute(AttributeKeySUrl, msg.SUrl),
-			sdk.NewAttribute(AttributeKeyOwner, msg.Owner.String()),
-			sdk.NewAttribute(AttributeKeyIsSell, fmt.Sprintf("%t", msg.IsSell)),
-		),
-	)
-
 	return sdk.Result{}
 }
 
@@ -193,15 +142,6 @@ func handleMsgSetPrice(ctx sdk.Context, keeper Keeper, msg MsgSetPrice) sdk.Resu
 		return sdk.ErrUnauthorized("SUrl has expired").Result()
 	}
 	keeper.SetPrice(ctx, msg.SUrl, msg.Bid)
-
-	ctx.EventManager().EmitEvent(
-		sdk.NewEvent(EventTypeSetPrice,
-			sdk.NewAttribute(AttributeKeySUrl, msg.SUrl),
-			sdk.NewAttribute(AttributeKeyOwner, msg.Owner.String()),
-			sdk.NewAttribute(AttributeKeyPrice, msg.Bid.String()),
-		),
-	)
-
 	return sdk.Result{}
 }
 
@@ -218,26 +158,14 @@ func handleMsgRenew(ctx sdk.Context, keeper Keeper, msg MsgRenew) sdk.Result {
 	if existingExp.Before(time.Now()) {
 		existingExp = time.Now()
 	}
-	newExp := existingExp.Add(msg.Duration)
 
 	fee := calculateRenewFee(msg.Duration)
-	totalCost := fee
-
-	_, _, err := keeper.coinKeeper.SubtractCoins(ctx, msg.Owner, totalCost)
+	_, _, err := keeper.coinKeeper.SubtractCoins(ctx, msg.Owner, fee)
 	if err != nil {
 		return sdk.ErrInsufficientCoins("Owner does not have enough coins").Result()
 	}
 
 	keeper.Renew(ctx, msg.SUrl, msg.Duration)
-
-	ctx.EventManager().EmitEvent(
-		sdk.NewEvent(EventTypeRenew,
-			sdk.NewAttribute(AttributeKeySUrl, msg.SUrl),
-			sdk.NewAttribute(AttributeKeyOwner, msg.Owner.String()),
-			sdk.NewAttribute(AttributeKeyExpiration, newExp.Format(time.RFC3339)),
-		),
-	)
-
 	return sdk.Result{}
 }
 
@@ -263,16 +191,6 @@ func handleMsgBuySUrlEscrow(ctx sdk.Context, keeper Keeper, msg MsgBuySUrlEscrow
 	escrow := NewEscrow(msg.SUrl, keeper.GetOwner(ctx, msg.SUrl), msg.Buyer, msg.Amount, fee)
 	store := ctx.KVStore(keeper.storeKey)
 	store.Set([]byte("escrow_"+msg.SUrl), keeper.cdc.MustMarshalJSON(escrow))
-
-	ctx.EventManager().EmitEvent(
-		sdk.NewEvent(EventTypeEscrow,
-			sdk.NewAttribute(AttributeKeySUrl, msg.SUrl),
-			sdk.NewAttribute(AttributeKeyBuyer, msg.Buyer.String()),
-			sdk.NewAttribute(AttributeKeyOwner, escrow.Seller.String()),
-			sdk.NewAttribute(AttributeKeyPrice, msg.Amount.String()),
-			sdk.NewAttribute(AttributeKeyStatus, "pending"),
-		),
-	)
 
 	return sdk.Result{}
 }
@@ -306,16 +224,6 @@ func handleMsgConfirmEscrow(ctx sdk.Context, keeper Keeper, msg MsgConfirmEscrow
 	store.Set([]byte("escrow_"+msg.SUrl), keeper.cdc.MustMarshalJSON(escrow))
 
 	keeper.SetOwner(ctx, msg.SUrl, escrow.Buyer)
-
-	ctx.EventManager().EmitEvent(
-		sdk.NewEvent(EventTypeEscrow,
-			sdk.NewAttribute(AttributeKeySUrl, msg.SUrl),
-			sdk.NewAttribute(AttributeKeyBuyer, escrow.Buyer.String()),
-			sdk.NewAttribute(AttributeKeyOwner, escrow.Seller.String()),
-			sdk.NewAttribute(AttributeKeyStatus, "completed"),
-		),
-	)
-
 	return sdk.Result{}
 }
 
@@ -341,13 +249,6 @@ func handleMsgCancelEscrow(ctx sdk.Context, keeper Keeper, msg MsgCancelEscrow) 
 	escrow.Status = EscrowCancelled
 	store.Set([]byte("escrow_"+msg.SUrl), keeper.cdc.MustMarshalJSON(escrow))
 
-	ctx.EventManager().EmitEvent(
-		sdk.NewEvent(EventTypeEscrow,
-			sdk.NewAttribute(AttributeKeySUrl, msg.SUrl),
-			sdk.NewAttribute(AttributeKeyStatus, "cancelled"),
-		),
-	)
-
 	return sdk.Result{}
 }
 
@@ -360,11 +261,8 @@ func handleMsgBatchSetLUrl(ctx sdk.Context, keeper Keeper, msg MsgBatchSetLUrl) 
 	}
 
 	successCount := 0
-	failedUrls := []string{}
-
 	for _, lUrl := range msg.LUrls {
 		if keeper.IsBlackListed(lUrl) {
-			failedUrls = append(failedUrls, lUrl)
 			continue
 		}
 		keeper.SetLUrl(ctx, msg.SUrl, lUrl)
@@ -375,14 +273,6 @@ func handleMsgBatchSetLUrl(ctx sdk.Context, keeper Keeper, msg MsgBatchSetLUrl) 
 		return sdk.ErrUnauthorized("All URLs are blacklisted").Result()
 	}
 
-	ctx.EventManager().EmitEvent(
-		sdk.NewEvent(EventTypeSetLUrl,
-			sdk.NewAttribute(AttributeKeySUrl, msg.SUrl),
-			sdk.NewAttribute(AttributeKeyOwner, msg.Owner.String()),
-			sdk.NewAttribute("success_count", fmt.Sprintf("%d", successCount)),
-		),
-	)
-
 	return sdk.Result{}
 }
 
@@ -392,27 +282,25 @@ func handleMsgAddBlackList(ctx sdk.Context, keeper Keeper, msg MsgAddBlackList) 
 	} else {
 		keeper.AddToBlackListURL(ctx, msg.URL)
 	}
-
-	ctx.EventManager().EmitEvent(
-		sdk.NewEvent(EventTypeBlackList,
-			sdk.NewAttribute("url", msg.URL),
-			sdk.NewAttribute("type", fmt.Sprintf("%t", msg.IsDomain)),
-		),
-	)
-
 	return sdk.Result{}
 }
 
 func calculateFee(bid sdk.Coins) sdk.Coins {
-	var fee sdk.Coins
+	totalFee := sdk.NewInt(0)
 	for _, coin := range bid {
-		fee = fee.Add(sdk.NewCoins(sdk.NewCoin(coin.Denom, coin.Amount.Mul(sdk.NewInt(5)).Div(sdk.NewInt(100)))))
+		fee := coin.Amount.Mul(sdk.NewInt(5)).Quo(sdk.NewInt(100))
+		totalFee = totalFee.Add(fee)
 	}
-	return fee
+	if totalFee.IsZero() {
+		totalFee = sdk.NewInt(1)
+	}
+	return sdk.Coins{{Denom: "stake", Amount: totalFee}}
 }
 
 func calculateRenewFee(duration time.Duration) sdk.Coins {
-	days := int(duration.Hour() / 24)
-	feeAmount := sdk.NewInt(int64(days))
-	return sdk.NewCoins(sdk.NewCoin("sastoken", feeAmount))
+	days := int(duration.Hours() / 24)
+	if days < 1 {
+		days = 1
+	}
+	return sdk.Coins{{Denom: "stake", Amount: sdk.NewInt(int64(days))}}
 }

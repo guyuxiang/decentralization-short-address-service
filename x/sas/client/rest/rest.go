@@ -31,7 +31,7 @@ func RegisterRoutes(cliCtx context.CLIContext, r *mux.Router, cdc *codec.Codec, 
 	r.HandleFunc(fmt.Sprintf("/%s/adress/{%s}/lAddress", storeName, restName), lAddressHandler(cdc, cliCtx, storeName)).Methods("GET")
 
 	// Redirect route -访问短地址自动跳转长地址
-	r.HandleFunc("/s/{sUrl}", redirectHandler(cliCtx, storeName)).Methods("GET")
+	r.HandleFunc("/s/{sUrl}", redirectHandler(cliCtx, storeName, cdc)).Methods("GET")
 
 	// Stats route
 	r.HandleFunc(fmt.Sprintf("/%s/stats", storeName), statsHandler(cdc, cliCtx, storeName)).Methods("GET")
@@ -243,7 +243,7 @@ func sUrlsHandler(cdc *codec.Codec, cliCtx context.CLIContext, storeName string)
 	}
 }
 
-func redirectHandler(cliCtx context.CLIContext, storeName string) http.HandlerFunc {
+func redirectHandler(cliCtx context.CLIContext, storeName string, cdc *codec.Codec) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 		sUrl := vars["sUrl"]
