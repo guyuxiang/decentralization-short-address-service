@@ -181,8 +181,8 @@ sascli query sas stats --chain-id <chain-id>
 访问短地址自动重定向：
 
 ```
-http://localhost:1317/s/abc123
-→ 重定向到 https://google.com
+http://openshort/code
+→ 重定向到 https://github.com/guyuxiang/decentralization-short-address-service
 ```
 
 ## 消息类型
