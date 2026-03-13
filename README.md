@@ -53,16 +53,23 @@ go version
 
 # 安装 Cosmos SDK 依赖
 go mod tidy
+
+# 编译项目
+go build -o sasd ./cmd/sasd
+go build -o sascli ./cmd/sascli
 ```
 
 ### 2. 启动区块链节点
 
 ```bash
 # 初始化节点
-星辰cosmos init <节点名称>
+sasd init <节点名称>
+
+# 添加测试账户
+sasd add-genesis-account <your-address> 100000000stake
 
 # 启动节点
-cosmos start
+sasd start
 ```
 
 ### 3. 使用 CLI 操作
@@ -71,87 +78,87 @@ cosmos start
 
 ```bash
 # 购买新的短地址（不指定则自动生成）
-sascli tx sas buy-sUrl "" 100sastoken --from <your-key>
+sascli tx sas buy-sUrl "" 100stake --from <your-key> --chain-id <chain-id> --yes --gas-prices 0.00001stake
 
 # 购买指定短地址
-sascli tx sas buy-sUrl abc123 100sastoken --from <your-key>
+sascli tx sas buy-sUrl abc123 100stake --from <your-key> --chain-id <chain-id> --yes --gas-prices 0.00001stake
 ```
 
 #### 设置长链接
 
 ```bash
 # 将短地址映射到长 URL
-sascli tx sas set_lUrl abc123 https://google.com --from <your-key>
+sascli tx sas set_lUrl abc123 https://google.com --from <your-key> --chain-id <chain-id> --yes --gas-prices 0.00001stake
 ```
 
 #### 设置价格
 
 ```bash
 # 设置短地址售价
-sascli tx sas set_price abc123 200sastoken --from <your-key>
+sascli tx sas set_price abc123 200stake --from <your-key> --chain-id <chain-id> --yes --gas-prices 0.00001stake
 ```
 
 #### 设置出售
 
 ```bash
 # 设置是否可出售
-sascli tx sas set_sell abc123 true --from <your-key>
+sascli tx sas set_sell abc123 true --from <your-key> --chain-id <chain-id> --yes --gas-prices 0.00001stake
 ```
 
 #### 续期
 
 ```bash
 # 续期短地址（按天）
-sascli tx sas renew abc123 30 --from <your-key>
+sascli tx sas renew abc123 30 --from <your-key> --chain-id <chain-id> --yes --gas-prices 0.00001stake
 ```
 
 #### Escrow 托管交易
 
 ```bash
 # 创建托管购买（资金暂存链上）
-sascli tx sas buy-escrow abc123 100sastoken --from buyer
+sascli tx sas buy-escrow abc123 100stake --from buyer --chain-id <chain-id> --yes --gas-prices 0.00001stake
 
 # 确认交易（卖方确认后资金转给卖方）
-sascli tx sas confirm-escrow abc123 --from seller
+sascli tx sas confirm-escrow abc123 --from seller --chain-id <chain-id> --yes --gas-prices 0.00001stake
 
 # 取消交易（资金退回买方）
-sascli tx sas cancel-escrow abc123 --from buyer
+sascli tx sas cancel-escrow abc123 --from buyer --chain-id <chain-id> --yes --gas-prices 0.00001stake
 ```
 
 #### 批量操作
 
 ```bash
 # 批量设置长 URL（用于 A/B 测试）
-sascli tx sas batch-set-lurl abc123 "https://a.com,https://b.com" --from <your-key>
+sascli tx sas batch-set-lurl abc123 "https://a.com,https://b.com" --from <your-key> --chain-id <chain-id> --yes --gas-prices 0.00001stake
 ```
 
 #### 黑名单管理
 
 ```bash
 # 添加 URL 到黑名单
-sascli tx sas add-blacklist https://evil.com url --from <admin-key>
+sascli tx sas add-blacklist https://evil.com url --from <admin-key> --chain-id <chain-id> --yes --gas-prices 0.00001stake
 
 # 添加域名到黑名单
-sascli tx sas add-blacklist evil.com domain --from <admin-key>
+sascli tx sas add-blacklist evil.com domain --from <admin-key> --chain-id <chain-id> --yes --gas-prices 0.00001stake
 ```
 
 #### 查询操作
 
 ```bash
 # 查询长链接
-sascli query sas lurl abc123
+sascli query sas lurl abc123 --chain-id <chain-id>
 
 # 查询地址详情
-sascli query sas laddress abc123
+sascli query sas laddress abc123 --chain-id <chain-id>
 
 # 查询所有短地址（分页）
-sascli query sas surls
+sascli query sas surls --chain-id <chain-id>
 
 # 按所有者查询
-sascli query sas owner-surls <owner-address>
+sascli query sas owner-surls <owner-address> --chain-id <chain-id>
 
 # 查询访问统计
-sascli query sas stats
+sascli query sas stats --chain-id <chain-id>
 ```
 
 ## REST API
@@ -282,6 +289,9 @@ func NewKeeper(coinKeeper bank.Keeper, storeKey sdk.StoreKey, cdc *codec.Codec, 
 5. 短地址过期后有7天宽限期可续期
 6. Escrow 交易更安全，建议大额交易使用
 7. 黑名单功能需要管理员权限
+8. 短地址长度必须为 6 位字符
+9. 所有交易命令需要添加 `--chain-id`、`--yes`、`--gas-prices 0.00001stake` 参数
+10. CLI 查询命令需要添加 `--chain-id` 参数
 
 ## License
 
