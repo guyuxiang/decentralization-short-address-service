@@ -1,0 +1,5 @@
+{
+  "name": "OpenShort - Decentralized Short Link Service",
+  "description": "A Web3 short link service built on Cosmos SDK. Buy, manage, and trade decentralized short links.",
+  "requestFramePermissions": []
+}
