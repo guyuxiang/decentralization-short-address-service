@@ -9,7 +9,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/auth"
 	"github.com/cosmos/cosmos-sdk/x/bank"
 	"github.com/cosmos/cosmos-sdk/x/params"
-	"github.com/cosmos/cosmos-sdk/x/staking"
 	"sas/x/sas"
 
 	bam "github.com/cosmos/cosmos-sdk/baseapp"
@@ -95,6 +94,11 @@ func NewsasApp(logger log.Logger, db dbm.DB) *sasApp {
 		"./data",
 	)
 
+	// Initialize global components before loading state
+	sas.NewGlobeCounter(1000)
+	sas.GlobalBloomFilter = sas.NewBloomFilter(2^30, 3)
+	sas.LruCache = sas.New(100)
+
 	// The AnteHandler handles signature verification and transaction pre-processing
 	app.SetAnteHandler(auth.NewAnteHandler(app.accountKeeper, app.feeCollectionKeeper))
 
@@ -112,23 +116,12 @@ func NewsasApp(logger log.Logger, db dbm.DB) *sasApp {
 	// The initChainer handles translating the genesis.json file into initial state for the network
 	app.SetInitChainer(app.initChainer)
 
-	app.MountStores(
-		app.keyMain,
-		app.keyAccount,
-		app.keySAS,
-		app.keyFeeCollection,
-		app.keyParams,
-		app.tkeyParams,
-	)
+	app.MountStores(app.keyMain, app.keyAccount, app.keySAS, app.keyFeeCollection, app.keyParams, app.tkeyParams)
 
 	err := app.LoadLatestVersion(app.keyMain)
 	if err != nil {
 		cmn.Exit(err.Error())
 	}
-
-	sas.NewGlobeCounter(1000)
-	sas.GlobalBloomFilter = sas.NewBloomFilter(2^30, 3)
-	sas.LruCache = sas.New(100)
 
 	return app
 }
@@ -197,7 +190,6 @@ func MakeCodec() *codec.Codec {
 	auth.RegisterCodec(cdc)
 	bank.RegisterCodec(cdc)
 	sas.RegisterCodec(cdc)
-	staking.RegisterCodec(cdc)
 	sdk.RegisterCodec(cdc)
 	codec.RegisterCrypto(cdc)
 	return cdc
