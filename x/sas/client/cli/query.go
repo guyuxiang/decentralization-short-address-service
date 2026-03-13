@@ -9,11 +9,10 @@ import (
 	"sas/x/sas"
 )
 
-// GetCmdResolveName queries information about a name
 func GetCmdLUrl(queryRoute string, cdc *codec.Codec) *cobra.Command {
 	return &cobra.Command{
-		Use:   "LUrl [sUrl]",
-		Short: "LUrl",
+		Use:   "lurl [sUrl]",
+		Short: "Query long URL by short URL",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cliCtx := context.NewCLIContext().WithCodec(cdc)
@@ -32,22 +31,22 @@ func GetCmdLUrl(queryRoute string, cdc *codec.Codec) *cobra.Command {
 	}
 }
 
-func GetCmdLAdress(queryRoute string, cdc *codec.Codec) *cobra.Command {
+func GetCmdLAddress(queryRoute string, cdc *codec.Codec) *cobra.Command {
 	return &cobra.Command{
-		Use:   "LAdress [sUrl]",
-		Short: "Query LAdress info of sUrl",
+		Use:   "laddress [sUrl]",
+		Short: "Query LAddress info of sUrl",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cliCtx := context.NewCLIContext().WithCodec(cdc)
-			name := args[0]
+			sUrl := args[0]
 
-			res, err := cliCtx.QueryWithData(fmt.Sprintf("custom/%s/LAdress/%s", queryRoute, name), nil)
+			res, err := cliCtx.QueryWithData(fmt.Sprintf("custom/%s/LAddress/%s", queryRoute, sUrl), nil)
 			if err != nil {
-				fmt.Printf("could not resolve whois - %s \n", string(name))
+				fmt.Printf("could not resolve address - %s \n", string(sUrl))
 				return nil
 			}
 
-			var out sas.LAdress
+			var out sas.LAddress
 			cdc.MustUnmarshalJSON(res, &out)
 			return cliCtx.PrintOutput(out)
 		},
@@ -56,19 +55,41 @@ func GetCmdLAdress(queryRoute string, cdc *codec.Codec) *cobra.Command {
 
 func GetCmdSUrls(queryRoute string, cdc *codec.Codec) *cobra.Command {
 	return &cobra.Command{
-		Use:   "SUrls",
-		Short: "SUrls",
-		// Args:  cobra.ExactArgs(1),
+		Use:   "surls",
+		Short: "Query all short URLs with pagination",
+		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cliCtx := context.NewCLIContext().WithCodec(cdc)
 
 			res, err := cliCtx.QueryWithData(fmt.Sprintf("custom/%s/SUrls", queryRoute), nil)
 			if err != nil {
-				fmt.Printf("could not get query names\n")
+				fmt.Printf("could not get query sUrls\n")
 				return nil
 			}
 
-			var out sas.QueryResSUrls
+			var out sas.QueryResPage
+			cdc.MustUnmarshalJSON(res, &out)
+			return cliCtx.PrintOutput(out)
+		},
+	}
+}
+
+func GetCmdOwnerSUrls(queryRoute string, cdc *codec.Codec) *cobra.Command {
+	return &cobra.Command{
+		Use:   "owner-surls [owner]",
+		Short: "Query short URLs by owner address",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cliCtx := context.NewCLIContext().WithCodec(cdc)
+			owner := args[0]
+
+			res, err := cliCtx.QueryWithData(fmt.Sprintf("custom/%s/owner/%s", queryRoute, owner), nil)
+			if err != nil {
+				fmt.Printf("could not get query owner sUrls\n")
+				return nil
+			}
+
+			var out sas.QueryResPage
 			cdc.MustUnmarshalJSON(res, &out)
 			return cliCtx.PrintOutput(out)
 		},

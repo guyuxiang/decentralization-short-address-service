@@ -3,6 +3,7 @@ package sas
 import (
 	"encoding/json"
 	"strings"
+	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
@@ -210,5 +211,48 @@ func (msg MsgSetPrice) GetSignBytes() []byte {
 
 // GetSigners defines whose signature is required
 func (msg MsgSetPrice) GetSigners() []sdk.AccAddress {
+	return []sdk.AccAddress{msg.Owner}
+}
+
+type MsgRenew struct {
+	SUrl     string
+	Duration time.Duration
+	Owner    sdk.AccAddress
+}
+
+func NewMsgRenew(sUrl string, duration time.Duration, owner sdk.AccAddress) MsgRenew {
+	return MsgRenew{
+		SUrl:     sUrl,
+		Duration: duration,
+		Owner:    owner,
+	}
+}
+
+func (msg MsgRenew) Route() string { return "sas" }
+
+func (msg MsgRenew) Type() string { return "renew" }
+
+func (msg MsgRenew) ValidateBasic() sdk.Error {
+	if msg.Owner.Empty() {
+		return sdk.ErrInvalidAddress(msg.Owner.String())
+	}
+	if len(msg.SUrl) == 0 {
+		return sdk.ErrUnknownRequest("SUrl cannot be empty")
+	}
+	if msg.Duration <= 0 {
+		return sdk.ErrUnknownRequest("Duration must be positive")
+	}
+	return nil
+}
+
+func (msg MsgRenew) GetSignBytes() []byte {
+	b, err := json.Marshal(msg)
+	if err != nil {
+		panic(err)
+	}
+	return sdk.MustSortJSON(b)
+}
+
+func (msg MsgRenew) GetSigners() []sdk.AccAddress {
 	return []sdk.AccAddress{msg.Owner}
 }

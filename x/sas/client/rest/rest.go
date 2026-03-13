@@ -28,7 +28,7 @@ func RegisterRoutes(cliCtx context.CLIContext, r *mux.Router, cdc *codec.Codec, 
 	r.HandleFunc(fmt.Sprintf("/%s/adress/price", storeName), setPriceHandler(cdc, cliCtx)).Methods("PUT")
 	r.HandleFunc(fmt.Sprintf("/%s/adress/sell", storeName), setSellHandler(cdc, cliCtx)).Methods("PUT")
 	r.HandleFunc(fmt.Sprintf("/%s/adress/{%s}/lUrl", storeName, restName), lUrlHandler(cdc, cliCtx, storeName)).Methods("GET")
-	r.HandleFunc(fmt.Sprintf("/%s/adress/{%s}/lAdress", storeName, restName), lAdressHandler(cdc, cliCtx, storeName)).Methods("GET")
+	r.HandleFunc(fmt.Sprintf("/%s/adress/{%s}/lAddress", storeName, restName), lAddressHandler(cdc, cliCtx, storeName)).Methods("GET")
 
 	// Redirect route -访问短地址自动跳转长地址
 	r.HandleFunc("/s/{sUrl}", redirectHandler(cliCtx, storeName)).Methods("GET")
@@ -214,12 +214,12 @@ func setSellHandler(cdc *codec.Codec, cliCtx context.CLIContext) http.HandlerFun
 	}
 }
 
-func lAdressHandler(cdc *codec.Codec, cliCtx context.CLIContext, storeName string) http.HandlerFunc {
+func lAddressHandler(cdc *codec.Codec, cliCtx context.CLIContext, storeName string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 		paramType := vars[restName]
 
-		res, err := cliCtx.QueryWithData(fmt.Sprintf("custom/%s/LAdress/%s", storeName, paramType), nil)
+		res, err := cliCtx.QueryWithData(fmt.Sprintf("custom/%s/LAddress/%s", storeName, paramType), nil)
 		if err != nil {
 			rest.WriteErrorResponse(w, http.StatusNotFound, err.Error())
 			return

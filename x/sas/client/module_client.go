@@ -19,7 +19,6 @@ func NewModuleClient(storeKey string, cdc *amino.Codec) ModuleClient {
 
 // GetQueryCmd returns the cli query commands for this module
 func (mc ModuleClient) GetQueryCmd() *cobra.Command {
-	// Group sas queries under a subcommand
 	namesvcQueryCmd := &cobra.Command{
 		Use:   "sas",
 		Short: "Querying commands for the sas module",
@@ -27,8 +26,9 @@ func (mc ModuleClient) GetQueryCmd() *cobra.Command {
 
 	namesvcQueryCmd.AddCommand(client.GetCommands(
 		sascmd.GetCmdLUrl(mc.storeKey, mc.cdc),
-		sascmd.GetCmdLAdress(mc.storeKey, mc.cdc),
+		sascmd.GetCmdLAddress(mc.storeKey, mc.cdc),
 		sascmd.GetCmdSUrls(mc.storeKey, mc.cdc),
+		sascmd.GetCmdOwnerSUrls(mc.storeKey, mc.cdc),
 	)...)
 
 	return namesvcQueryCmd
@@ -46,6 +46,7 @@ func (mc ModuleClient) GetTxCmd() *cobra.Command {
 		sascmd.GetCmdSetLUrl(mc.cdc),
 		sascmd.GetCmdSetSell(mc.cdc),
 		sascmd.GetCmdSetPrice(mc.cdc),
+		sascmd.GetCmdRenew(mc.cdc),
 	)...)
 
 	return namesvcTxCmd

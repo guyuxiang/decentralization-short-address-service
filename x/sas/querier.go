@@ -5,67 +5,72 @@ import (
 	"strings"
 
 	"github.com/cosmos/cosmos-sdk/codec"
-
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	abci "github.com/tendermint/tendermint/abci/types"
 )
 
-// query endpoints supported by the sas Querier
 const (
-	QueryLUrl    = "LUrl"
-	QueryLAdress = "LAdress"
-	QuerySUrl    = "SUrls"
+	QueryLUrl     = "LUrl"
+	QueryLAddress = "LAddress"
+	QuerySUrl     = "SUrls"
+	QueryOwner    = "owner"
+	DefaultPage   = 1
+	DefaultLimit  = 100
 )
 
-// Query Result Payload for a resolve query
 type QueryResLUrl struct {
-	Lurl string `json:"lUrl"`
+	LUrl string `json:"lUrl"`
 }
 
-// implement fmt.Stringer
 func (r QueryResLUrl) String() string {
-	return r.Lurl
+	return r.LUrl
 }
 
-// Query Result Payload for a names query
 type QueryResSUrls []string
 
-// implement fmt.Stringer
 func (n QueryResSUrls) String() string {
 	return strings.Join(n[:], "\n")
 }
 
-// implement fmt.Stringer
-func (w LAdress) String() string {
-	return strings.TrimSpace(fmt.Sprintf(`Owner: %s
-LUrl: %s
-Price: %s
-IsSell: %s`, w.Owner, w.LUrl, w.Price, w.IsSell))
+type QueryResPage struct {
+	SUrls []string `json:"sUrls"`
+	Page  int      `json:"page"`
+	Limit int      `json:"limit"`
+	Total int      `json:"total"`
 }
 
-// NewQuerier is the module level router for state queries
+func (w LAddress) String() string {
+	return fmt.Sprintf(`Owner: %s
+LUrl: %s
+Price: %s
+IsSell: %v
+CreatedAt: %s
+UpdatedAt: %s
+ExpirationTime: %s`, w.Owner, w.LUrl, w.Price, w.IsSell, w.CreatedAt, w.UpdatedAt, w.ExpirationTime)
+}
+
 func NewQuerier(keeper Keeper) sdk.Querier {
 	return func(ctx sdk.Context, path []string, req abci.RequestQuery) (res []byte, err sdk.Error) {
 		switch path[0] {
 		case QueryLUrl:
 			return queryLUrl(ctx, path[1:], req, keeper)
-		case QueryLAdress:
-			return queryLAdress(ctx, path[1:], req, keeper)
+		case QueryLAddress:
+			return queryLAddress(ctx, path[1:], req, keeper)
 		case QuerySUrl:
 			return querySUrls(ctx, req, keeper)
+		case QueryOwner:
+			return queryOwnerSUrls(ctx, path[1:], req, keeper)
 		default:
 			return nil, sdk.ErrUnknownRequest("unknown sas query endpoint")
 		}
 	}
 }
 
-// nolint: unparam
 func queryLUrl(ctx sdk.Context, path []string, req abci.RequestQuery, keeper Keeper) (res []byte, err sdk.Error) {
 	sUrl := path[0]
 	if !QuickCheckSUrlExist(sUrl) {
 		return nil, sdk.ErrUnknownRequest("sUrl not exist")
 	}
-	// 缓存LRU
 	lUrl, fit := LruCache.Get(sUrl)
 	if !fit {
 		lu := keeper.ResolveLUrl(ctx, sUrl)
@@ -76,7 +81,7 @@ func queryLUrl(ctx sdk.Context, path []string, req abci.RequestQuery, keeper Kee
 		lUrl = lu
 	}
 
-	bz, err2 := codec.MarshalJSONIndent(keeper.cdc, QueryResLUrl{lUrl.(string)})
+	bz, err2 := codec.MarshalJSONIndent(keeper.cdc, QueryResLUrl{LUrl: lUrl.(string)})
 	if err2 != nil {
 		panic("could not marshal result to JSON")
 	}
@@ -84,15 +89,14 @@ func queryLUrl(ctx sdk.Context, path []string, req abci.RequestQuery, keeper Kee
 	return bz, nil
 }
 
-// nolint: unparam
-func queryLAdress(ctx sdk.Context, path []string, req abci.RequestQuery, keeper Keeper) (res []byte, err sdk.Error) {
+func queryLAddress(ctx sdk.Context, path []string, req abci.RequestQuery, keeper Keeper) (res []byte, err sdk.Error) {
 	sUrl := path[0]
 	if !QuickCheckSUrlExist(sUrl) {
 		return nil, sdk.ErrUnknownRequest("sUrl not exist")
 	}
-	lAdress := keeper.GetLAdress(ctx, sUrl)
+	lAddress := keeper.GetLAddress(ctx, sUrl)
 
-	bz, err2 := codec.MarshalJSONIndent(keeper.cdc, lAdress)
+	bz, err2 := codec.MarshalJSONIndent(keeper.cdc, lAddress)
 	if err2 != nil {
 		panic("could not marshal result to JSON")
 	}
@@ -101,16 +105,105 @@ func queryLAdress(ctx sdk.Context, path []string, req abci.RequestQuery, keeper 
 }
 
 func querySUrls(ctx sdk.Context, req abci.RequestQuery, keeper Keeper) (res []byte, err sdk.Error) {
-	var sUrlsList QueryResSUrls
+	page := DefaultPage
+	limit := DefaultLimit
 
-	iterator := keeper.GetSUrlsIterator(ctx)
-
-	for ; iterator.Valid(); iterator.Next() {
-		sUrl := string(iterator.Key())
-		sUrlsList = append(sUrlsList, sUrl)
+	if req.Data != nil && len(req.Data) > 0 {
+		var params struct {
+			Page  int `json:"page"`
+			Limit int `json:"limit"`
+		}
+		if err := keeper.cdc.UnmarshalJSON(req.Data, &params); err == nil {
+			if params.Page > 0 {
+				page = params.Page
+			}
+			if params.Limit > 0 {
+				limit = params.Limit
+			}
+		}
 	}
 
-	bz, err2 := codec.MarshalJSONIndent(keeper.cdc, sUrlsList)
+	var allSUrls []string
+	iterator := keeper.GetSUrlsIterator(ctx)
+	for ; iterator.Valid(); iterator.Next() {
+		sUrl := string(iterator.Key())
+		allSUrls = append(allSUrls, sUrl)
+	}
+
+	total := len(allSUrls)
+	start := (page - 1) * limit
+	end := start + limit
+	if start > total {
+		allSUrls = []string{}
+	} else {
+		if end > total {
+			end = total
+		}
+		allSUrls = allSUrls[start:end]
+	}
+
+	bz, err2 := codec.MarshalJSONIndent(keeper.cdc, QueryResPage{
+		SUrls: allSUrls,
+		Page:  page,
+		Limit: limit,
+		Total: total,
+	})
+	if err2 != nil {
+		panic("could not marshal result to JSON")
+	}
+
+	return bz, nil
+}
+
+func queryOwnerSUrls(ctx sdk.Context, path []string, req abci.RequestQuery, keeper Keeper) (res []byte, err sdk.Error) {
+	if len(path) < 1 {
+		return nil, sdk.ErrUnknownRequest("owner address required")
+	}
+
+	ownerStr := path[0]
+	owner, err := sdk.AccAddressFromBech32(ownerStr)
+	if err != nil {
+		return nil, sdk.ErrInvalidAddress(ownerStr)
+	}
+
+	page := DefaultPage
+	limit := DefaultLimit
+
+	if len(path) > 1 {
+		fmt.Sscanf(path[1], "%d", &page)
+	}
+	if len(path) > 2 {
+		fmt.Sscanf(path[2], "%d", &limit)
+	}
+
+	var ownerSUrls []string
+	iterator := keeper.GetSUrlsIterator(ctx)
+	for ; iterator.Valid(); iterator.Next() {
+		sUrl := string(iterator.Key())
+		lAddress := keeper.GetLAddress(ctx, sUrl)
+		if lAddress.Owner.Equals(owner) {
+			ownerSUrls = append(ownerSUrls, sUrl)
+		}
+	}
+
+	total := len(ownerSUrls)
+	start := (page - 1) * limit
+	end := start + limit
+	if start > total {
+		ownerSUrls = []string{}
+	} else {
+		if end > total {
+			end = total
+		}
+		ownerSUrls = ownerSUrls[start:end]
+	}
+
+	bz, err2 := codec.MarshalJSONIndent(keeper.cdc, QueryResPage{
+		SUrls: ownerSUrls,
+		Page:  page,
+		Limit: limit,
+		Total: total,
+	})
 	if err2 != nil {
 		panic("could not marshal result to JSON")
 	}

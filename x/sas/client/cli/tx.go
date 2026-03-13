@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"time"
+
 	"github.com/spf13/cobra"
 	"strconv"
 
@@ -131,6 +133,39 @@ func GetCmdSetPrice(cdc *codec.Codec) *cobra.Command {
 			cliCtx.PrintResponse = true
 
 			// return utils.CompleteAndBroadcastTxCLI(txBldr, cliCtx, msgs)
+			return utils.CompleteAndBroadcastTxCLI(txBldr, cliCtx, []sdk.Msg{msg})
+		},
+	}
+}
+
+func GetCmdRenew(cdc *codec.Codec) *cobra.Command {
+	return &cobra.Command{
+		Use:   "renew [sUrl] [days]",
+		Short: "renew a short URL by adding more time (in days)",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cliCtx := context.NewCLIContext().WithCodec(cdc).WithAccountDecoder(cdc)
+
+			txBldr := authtxb.NewTxBuilderFromCLI().WithTxEncoder(utils.GetTxEncoder(cdc))
+
+			if err := cliCtx.EnsureAccountExists(); err != nil {
+				return err
+			}
+
+			days, err := strconv.ParseInt(args[1], 10, 64)
+			if err != nil {
+				return err
+			}
+
+			duration := time.Duration(days*24) * time.Hour
+			msg := sas.NewMsgRenew(args[0], duration, cliCtx.GetFromAddress())
+			err = msg.ValidateBasic()
+			if err != nil {
+				return err
+			}
+
+			cliCtx.PrintResponse = true
+
 			return utils.CompleteAndBroadcastTxCLI(txBldr, cliCtx, []sdk.Msg{msg})
 		},
 	}

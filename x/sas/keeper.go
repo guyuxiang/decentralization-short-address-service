@@ -1,22 +1,22 @@
 package sas
 
 import (
+	"time"
+
 	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/x/bank"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-// Keeper maintains the link to data storage and exposes getter/setter methods for the various parts of the state machine
 type Keeper struct {
 	coinKeeper bank.Keeper
 
-	storeKey sdk.StoreKey // Unexposed key to access store from sdk.Context
+	storeKey sdk.StoreKey
 
-	cdc *codec.Codec // The wire codec for binary encoding/decoding.
+	cdc *codec.Codec
 }
 
-// NewKeeper creates new instances of the sas Keeper
 func NewKeeper(coinKeeper bank.Keeper, storeKey sdk.StoreKey, cdc *codec.Codec) Keeper {
 	return Keeper{
 		coinKeeper: coinKeeper,
@@ -25,71 +25,72 @@ func NewKeeper(coinKeeper bank.Keeper, storeKey sdk.StoreKey, cdc *codec.Codec) 
 	}
 }
 
-func (k Keeper) GetLAdress(ctx sdk.Context, sUrl string) LAdress {
+func (k Keeper) GetLAddress(ctx sdk.Context, sUrl string) LAddress {
 	store := ctx.KVStore(k.storeKey)
 	bz := store.Get([]byte(sUrl))
-	var lAdress LAdress
-	k.cdc.MustUnmarshalBinaryBare(bz, &lAdress)
-	return lAdress
+	var lAddress LAddress
+	k.cdc.MustUnmarshalBinaryBare(bz, &lAddress)
+	return lAddress
 }
 
-func (k Keeper) StoreLAdress(ctx sdk.Context, sUrl string, owner sdk.AccAddress, price sdk.Coins) {
-	lAdress := NewLAdress()
-	lAdress.Price = price
-	lAdress.Owner = owner
+func (k Keeper) StoreLAddress(ctx sdk.Context, sUrl string, owner sdk.AccAddress, price sdk.Coins, duration time.Duration) {
+	lAddress := NewLAddress()
+	lAddress.Price = price
+	lAddress.Owner = owner
+	lAddress.ExpirationTime = time.Now().Add(duration)
 	store := ctx.KVStore(k.storeKey)
-	store.Set([]byte(sUrl), k.cdc.MustMarshalBinaryBare(lAdress))
+	store.Set([]byte(sUrl), k.cdc.MustMarshalBinaryBare(lAddress))
 }
 
 func (k Keeper) isSUrlExist(ctx sdk.Context, sUrl string) bool {
 	store := ctx.KVStore(k.storeKey)
-	if store.Has([]byte(sUrl)) {
-		return true
-	} else {
-		return false
-	}
+	return store.Has([]byte(sUrl))
 }
 
-func (k Keeper) SetLAdress(ctx sdk.Context, sUrl string, lAdress LAdress) {
-	if lAdress.Owner.Empty() {
+func (k Keeper) SetLAddress(ctx sdk.Context, sUrl string, lAddress LAddress) {
+	if lAddress.Owner.Empty() {
 		return
 	}
+	lAddress.UpdatedAt = time.Now()
 	store := ctx.KVStore(k.storeKey)
-	store.Set([]byte(sUrl), k.cdc.MustMarshalBinaryBare(lAdress))
+	store.Set([]byte(sUrl), k.cdc.MustMarshalBinaryBare(lAddress))
 }
 
 func (k Keeper) ResolveLUrl(ctx sdk.Context, sUrl string) string {
-	return k.GetLAdress(ctx, sUrl).LUrl
+	return k.GetLAddress(ctx, sUrl).LUrl
 }
 
 func (k Keeper) SetLUrl(ctx sdk.Context, sUrl string, lUrl string) {
-	lAdress := k.GetLAdress(ctx, sUrl)
-	lAdress.LUrl = lUrl
-	k.SetLAdress(ctx, sUrl, lAdress)
+	lAddress := k.GetLAddress(ctx, sUrl)
+	lAddress.LUrl = lUrl
+	lAddress.UpdatedAt = time.Now()
+	k.SetLAddress(ctx, sUrl, lAddress)
 }
 
 func (k Keeper) HasOwner(ctx sdk.Context, sUrl string) bool {
-	return !k.GetLAdress(ctx, sUrl).Owner.Empty()
+	return !k.GetLAddress(ctx, sUrl).Owner.Empty()
 }
 
 func (k Keeper) GetOwner(ctx sdk.Context, sUrl string) sdk.AccAddress {
-	return k.GetLAdress(ctx, sUrl).Owner
+	return k.GetLAddress(ctx, sUrl).Owner
 }
 
 func (k Keeper) SetOwner(ctx sdk.Context, sUrl string, owner sdk.AccAddress) {
-	lAdress := k.GetLAdress(ctx, sUrl)
-	lAdress.Owner = owner
-	k.SetLAdress(ctx, sUrl, lAdress)
+	lAddress := k.GetLAddress(ctx, sUrl)
+	lAddress.Owner = owner
+	lAddress.UpdatedAt = time.Now()
+	k.SetLAddress(ctx, sUrl, lAddress)
 }
 
 func (k Keeper) GetPrice(ctx sdk.Context, sUrl string) sdk.Coins {
-	return k.GetLAdress(ctx, sUrl).Price
+	return k.GetLAddress(ctx, sUrl).Price
 }
 
 func (k Keeper) SetPrice(ctx sdk.Context, sUrl string, price sdk.Coins) {
-	lAdress := k.GetLAdress(ctx, sUrl)
-	lAdress.Price = price
-	k.SetLAdress(ctx, sUrl, lAdress)
+	lAddress := k.GetLAddress(ctx, sUrl)
+	lAddress.Price = price
+	lAddress.UpdatedAt = time.Now()
+	k.SetLAddress(ctx, sUrl, lAddress)
 }
 
 func (k Keeper) GetSUrlsIterator(ctx sdk.Context) sdk.Iterator {
@@ -98,17 +99,41 @@ func (k Keeper) GetSUrlsIterator(ctx sdk.Context) sdk.Iterator {
 }
 
 func (k Keeper) SetSell(ctx sdk.Context, sUrl string, isSell bool) {
-	lAdress := k.GetLAdress(ctx, sUrl)
-	lAdress.IsSell = isSell
-	k.SetLAdress(ctx, sUrl, lAdress)
+	lAddress := k.GetLAddress(ctx, sUrl)
+	lAddress.IsSell = isSell
+	lAddress.UpdatedAt = time.Now()
+	k.SetLAddress(ctx, sUrl, lAddress)
 }
 
 func (k Keeper) SetNoSell(ctx sdk.Context, sUrl string) {
-	lAdress := k.GetLAdress(ctx, sUrl)
-	lAdress.IsSell = false
-	k.SetLAdress(ctx, sUrl, lAdress)
+	lAddress := k.GetLAddress(ctx, sUrl)
+	lAddress.IsSell = false
+	lAddress.UpdatedAt = time.Now()
+	k.SetLAddress(ctx, sUrl, lAddress)
 }
 
 func (k Keeper) GetSell(ctx sdk.Context, sUrl string) bool {
-	return k.GetLAdress(ctx, sUrl).IsSell
+	return k.GetLAddress(ctx, sUrl).IsSell
+}
+
+func (k Keeper) IsExpired(ctx sdk.Context, sUrl string) bool {
+	lAddress := k.GetLAddress(ctx, sUrl)
+	return time.Now().After(lAddress.ExpirationTime)
+}
+
+func (k Keeper) GetExpirationTime(ctx sdk.Context, sUrl string) time.Time {
+	return k.GetLAddress(ctx, sUrl).ExpirationTime
+}
+
+func (k Keeper) Renew(ctx sdk.Context, sUrl string, duration time.Duration) sdk.Error {
+	lAddress := k.GetLAddress(ctx, sUrl)
+	lAddress.ExpirationTime = time.Now().Add(duration)
+	lAddress.UpdatedAt = time.Now()
+	k.SetLAddress(ctx, sUrl, lAddress)
+	return nil
+}
+
+func (k Keeper) DeleteLAddress(ctx sdk.Context, sUrl string) {
+	store := ctx.KVStore(k.storeKey)
+	store.Delete([]byte(sUrl))
 }

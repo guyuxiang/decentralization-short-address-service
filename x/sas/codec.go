@@ -10,4 +10,5 @@ func RegisterCodec(cdc *codec.Codec) {
 	cdc.RegisterConcrete(MsgSetSell{}, "sas/SetSell", nil)
 	cdc.RegisterConcrete(MsgBuySUrl{}, "sas/BuySUrl", nil)
 	cdc.RegisterConcrete(MsgSetPrice{}, "sas/SetPrice", nil)
+	cdc.RegisterConcrete(MsgRenew{}, "sas/Renew", nil)
 }
