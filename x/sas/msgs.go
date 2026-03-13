@@ -256,3 +256,213 @@ func (msg MsgRenew) GetSignBytes() []byte {
 func (msg MsgRenew) GetSigners() []sdk.AccAddress {
 	return []sdk.AccAddress{msg.Owner}
 }
+
+type MsgBuySUrlEscrow struct {
+	SUrl   string
+	Amount sdk.Coins
+	Buyer  sdk.AccAddress
+}
+
+func NewMsgBuySUrlEscrow(sUrl string, amount sdk.Coins, buyer sdk.AccAddress) MsgBuySUrlEscrow {
+	return MsgBuySUrlEscrow{
+		SUrl:   sUrl,
+		Amount: amount,
+		Buyer:  buyer,
+	}
+}
+
+func (msg MsgBuySUrlEscrow) Route() string { return "sas" }
+
+func (msg MsgBuySUrlEscrow) Type() string { return "buy_sUrl_escrow" }
+
+func (msg MsgBuySUrlEscrow) ValidateBasic() sdk.Error {
+	if msg.Buyer.Empty() {
+		return sdk.ErrInvalidAddress(msg.Buyer.String())
+	}
+	if len(msg.SUrl) == 0 {
+		return sdk.ErrUnknownRequest("SUrl cannot be empty")
+	}
+	if !msg.Amount.IsAllPositive() {
+		return sdk.ErrInsufficientCoins("Amount must be positive")
+	}
+	return nil
+}
+
+func (msg MsgBuySUrlEscrow) GetSignBytes() []byte {
+	b, err := json.Marshal(msg)
+	if err != nil {
+		panic(err)
+	}
+	return sdk.MustSortJSON(b)
+}
+
+func (msg MsgBuySUrlEscrow) GetSigners() []sdk.AccAddress {
+	return []sdk.AccAddress{msg.Buyer}
+}
+
+type MsgConfirmEscrow struct {
+	SUrl      string
+	Confirmor sdk.AccAddress
+}
+
+func NewMsgConfirmEscrow(sUrl string, confirmor sdk.AccAddress) MsgConfirmEscrow {
+	return MsgConfirmEscrow{
+		SUrl:      sUrl,
+		Confirmor: confirmor,
+	}
+}
+
+func (msg MsgConfirmEscrow) Route() string { return "sas" }
+
+func (msg MsgConfirmEscrow) Type() string { return "confirm_escrow" }
+
+func (msg MsgConfirmEscrow) ValidateBasic() sdk.Error {
+	if msg.Confirmor.Empty() {
+		return sdk.ErrInvalidAddress(msg.Confirmor.String())
+	}
+	if len(msg.SUrl) == 0 {
+		return sdk.ErrUnknownRequest("SUrl cannot be empty")
+	}
+	return nil
+}
+
+func (msg MsgConfirmEscrow) GetSignBytes() []byte {
+	b, err := json.Marshal(msg)
+	if err != nil {
+		panic(err)
+	}
+	return sdk.MustSortJSON(b)
+}
+
+func (msg MsgConfirmEscrow) GetSigners() []sdk.AccAddress {
+	return []sdk.AccAddress{msg.Confirmor}
+}
+
+type MsgCancelEscrow struct {
+	SUrl     string
+	Canceler sdk.AccAddress
+}
+
+func NewMsgCancelEscrow(sUrl string, canceler sdk.AccAddress) MsgCancelEscrow {
+	return MsgCancelEscrow{
+		SUrl:     sUrl,
+		Canceler: canceler,
+	}
+}
+
+func (msg MsgCancelEscrow) Route() string { return "sas" }
+
+func (msg MsgCancelEscrow) Type() string { return "cancel_escrow" }
+
+func (msg MsgCancelEscrow) ValidateBasic() sdk.Error {
+	if msg.Canceler.Empty() {
+		return sdk.ErrInvalidAddress(msg.Canceler.String())
+	}
+	if len(msg.SUrl) == 0 {
+		return sdk.ErrUnknownRequest("SUrl cannot be empty")
+	}
+	return nil
+}
+
+func (msg MsgCancelEscrow) GetSignBytes() []byte {
+	b, err := json.Marshal(msg)
+	if err != nil {
+		panic(err)
+	}
+	return sdk.MustSortJSON(b)
+}
+
+func (msg MsgCancelEscrow) GetSigners() []sdk.AccAddress {
+	return []sdk.AccAddress{msg.Canceler}
+}
+
+type MsgBatchSetLUrl struct {
+	SUrl  string
+	LUrls []string
+	Owner sdk.AccAddress
+}
+
+func NewMsgBatchSetLUrl(sUrl string, lUrls []string, owner sdk.AccAddress) MsgBatchSetLUrl {
+	return MsgBatchSetLUrl{
+		SUrl:  sUrl,
+		LUrls: lUrls,
+		Owner: owner,
+	}
+}
+
+func (msg MsgBatchSetLUrl) Route() string { return "sas" }
+
+func (msg MsgBatchSetLUrl) Type() string { return "batch_set_lUrl" }
+
+func (msg MsgBatchSetLUrl) ValidateBasic() sdk.Error {
+	if msg.Owner.Empty() {
+		return sdk.ErrInvalidAddress(msg.Owner.String())
+	}
+	if len(msg.SUrl) == 0 {
+		return sdk.ErrUnknownRequest("SUrl cannot be empty")
+	}
+	if len(msg.LUrls) == 0 {
+		return sdk.ErrUnknownRequest("At least one LUrl required")
+	}
+	if len(msg.LUrls) > 10 {
+		return sdk.ErrUnknownRequest("Maximum 10 URLs per batch")
+	}
+	for _, lUrl := range msg.LUrls {
+		if err := validateLUrl(lUrl); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (msg MsgBatchSetLUrl) GetSignBytes() []byte {
+	b, err := json.Marshal(msg)
+	if err != nil {
+		panic(err)
+	}
+	return sdk.MustSortJSON(b)
+}
+
+func (msg MsgBatchSetLUrl) GetSigners() []sdk.AccAddress {
+	return []sdk.AccAddress{msg.Owner}
+}
+
+type MsgAddBlackList struct {
+	URL      string
+	IsDomain bool
+	Admin    sdk.AccAddress
+}
+
+func NewMsgAddBlackList(url string, isDomain bool, admin sdk.AccAddress) MsgAddBlackList {
+	return MsgAddBlackList{
+		URL:      url,
+		IsDomain: isDomain,
+		Admin:    admin,
+	}
+}
+
+func (msg MsgAddBlackList) Route() string { return "sas" }
+
+func (msg MsgAddBlackList) Type() string { return "add_blacklist" }
+
+func (msg MsgAddBlackList) ValidateBasic() sdk.Error {
+	if msg.Admin.Empty() {
+		return sdk.ErrInvalidAddress(msg.Admin.String())
+	}
+	if len(msg.URL) == 0 {
+		return sdk.ErrUnknownRequest("URL cannot be empty")
+	}
+	return nil
+}
+
+func (msg MsgAddBlackList) GetSignBytes() []byte {
+	b, err := json.Marshal(msg)
+	if err != nil {
+		panic(err)
+	}
+	return sdk.MustSortJSON(b)
+}
+
+func (msg MsgAddBlackList) GetSigners() []sdk.AccAddress {
+	return []sdk.AccAddress{msg.Admin}
+}

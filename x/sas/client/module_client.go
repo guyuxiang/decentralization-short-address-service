@@ -29,6 +29,7 @@ func (mc ModuleClient) GetQueryCmd() *cobra.Command {
 		sascmd.GetCmdLAddress(mc.storeKey, mc.cdc),
 		sascmd.GetCmdSUrls(mc.storeKey, mc.cdc),
 		sascmd.GetCmdOwnerSUrls(mc.storeKey, mc.cdc),
+		sascmd.GetCmdStats(mc.storeKey, mc.cdc),
 	)...)
 
 	return namesvcQueryCmd
@@ -47,6 +48,11 @@ func (mc ModuleClient) GetTxCmd() *cobra.Command {
 		sascmd.GetCmdSetSell(mc.cdc),
 		sascmd.GetCmdSetPrice(mc.cdc),
 		sascmd.GetCmdRenew(mc.cdc),
+		sascmd.GetCmdBuyEscrow(mc.cdc),
+		sascmd.GetCmdConfirmEscrow(mc.cdc),
+		sascmd.GetCmdCancelEscrow(mc.cdc),
+		sascmd.GetCmdBatchSetLUrl(mc.cdc),
+		sascmd.GetCmdAddBlackList(mc.cdc),
 	)...)
 
 	return namesvcTxCmd

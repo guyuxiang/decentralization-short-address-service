@@ -14,6 +14,7 @@ const (
 	QueryLAddress = "LAddress"
 	QuerySUrl     = "SUrls"
 	QueryOwner    = "owner"
+	QueryStats    = "stats"
 	DefaultPage   = 1
 	DefaultLimit  = 100
 )
@@ -60,6 +61,8 @@ func NewQuerier(keeper Keeper) sdk.Querier {
 			return querySUrls(ctx, req, keeper)
 		case QueryOwner:
 			return queryOwnerSUrls(ctx, path[1:], req, keeper)
+		case QueryStats:
+			return queryStats(ctx, req, keeper)
 		default:
 			return nil, sdk.ErrUnknownRequest("unknown sas query endpoint")
 		}
@@ -204,6 +207,17 @@ func queryOwnerSUrls(ctx sdk.Context, path []string, req abci.RequestQuery, keep
 		Limit: limit,
 		Total: total,
 	})
+	if err2 != nil {
+		panic("could not marshal result to JSON")
+	}
+
+	return bz, nil
+}
+
+func queryStats(ctx sdk.Context, req abci.RequestQuery, keeper Keeper) (res []byte, err sdk.Error) {
+	stats := keeper.GetStats(ctx)
+
+	bz, err2 := codec.MarshalJSONIndent(keeper.cdc, stats)
 	if err2 != nil {
 		panic("could not marshal result to JSON")
 	}

@@ -55,3 +55,12 @@ func QuickCheckSUrlExist(sUrl string) bool {
 	}
 	return true
 }
+
+func (k Keeper) AddToBloomFilter(sUrl string) {
+	if GlobalBloomFilter != nil {
+		GlobalBloomFilter.Set(sUrl)
+	}
+}
+
+func (k Keeper) RemoveFromBloomFilter(sUrl string) {
+}

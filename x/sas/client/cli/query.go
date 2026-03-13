@@ -95,3 +95,22 @@ func GetCmdOwnerSUrls(queryRoute string, cdc *codec.Codec) *cobra.Command {
 		},
 	}
 }
+
+func GetCmdStats(queryRoute string, cdc *codec.Codec) *cobra.Command {
+	return &cobra.Command{
+		Use:   "stats",
+		Short: "Query statistics (total clicks, top URLs)",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cliCtx := context.NewCLIContext().WithCodec(cdc)
+
+			res, err := cliCtx.QueryWithData(fmt.Sprintf("custom/%s/stats", queryRoute), nil)
+			if err != nil {
+				fmt.Printf("could not get stats\n")
+				return nil
+			}
+
+			return cliCtx.PrintOutput(res)
+		},
+	}
+}

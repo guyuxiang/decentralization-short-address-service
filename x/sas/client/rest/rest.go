@@ -32,6 +32,9 @@ func RegisterRoutes(cliCtx context.CLIContext, r *mux.Router, cdc *codec.Codec, 
 
 	// Redirect route -访问短地址自动跳转长地址
 	r.HandleFunc("/s/{sUrl}", redirectHandler(cliCtx, storeName)).Methods("GET")
+
+	// Stats route
+	r.HandleFunc(fmt.Sprintf("/%s/stats", storeName), statsHandler(cdc, cliCtx, storeName)).Methods("GET")
 }
 
 type buySUrlReq struct {
@@ -266,5 +269,16 @@ func redirectHandler(cliCtx context.CLIContext, storeName string) http.HandlerFu
 		}
 
 		http.Redirect(w, r, lUrlResp.LUrl, http.StatusMovedPermanently)
+	}
+}
+
+func statsHandler(cdc *codec.Codec, cliCtx context.CLIContext, storeName string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		res, err := cliCtx.QueryWithData(fmt.Sprintf("custom/%s/stats", storeName), nil)
+		if err != nil {
+			rest.WriteErrorResponse(w, http.StatusNotFound, err.Error())
+			return
+		}
+		rest.PostProcessResponse(w, cdc, res, cliCtx.Indent)
 	}
 }
