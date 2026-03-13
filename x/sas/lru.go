@@ -6,6 +6,10 @@ import (
 
 var LruCache *Cache
 
+func init() {
+	LruCache = New(10000)
+}
+
 // Cache 代表LRU缓存实现，暂时未考虑线程安全
 type Cache struct {
 	// MaxEntries 表示缓存容量的最大值，0表示是一个空缓存

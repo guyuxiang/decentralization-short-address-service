@@ -5,7 +5,9 @@ import (
 	"sync/atomic"
 )
 
-var gC = &globeCounter{}
+var gC = &globeCounter{
+	number: new(uint32),
+}
 
 type globeCounter struct {
 	number *uint32
@@ -25,9 +27,7 @@ func applyNumber() uint32 {
 }
 
 func rullBackNumber() {
-	if *gC.number >= 1 {
-		atomic.CompareAndSwapUint32(gC.number, *gC.number, *gC.number-1)
-	}
+	atomic.AddUint32(gC.number, ^uint32(0))
 }
 
 func ApplyShortUrl(ctx sdk.Context, keeper Keeper) string {

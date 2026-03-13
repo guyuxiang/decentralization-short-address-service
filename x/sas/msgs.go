@@ -2,9 +2,28 @@ package sas
 
 import (
 	"encoding/json"
+	"strings"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
+
+const (
+	MaxLUrlLength = 2048
+)
+
+func validateLUrl(lUrl string) sdk.Error {
+	if len(lUrl) == 0 {
+		return sdk.ErrUnknownRequest("LUrl cannot be empty")
+	}
+	if len(lUrl) > MaxLUrlLength {
+		return sdk.ErrUnknownRequest("LUrl too long")
+	}
+	lUrl = strings.ToLower(lUrl)
+	if !strings.HasPrefix(lUrl, "http://") && !strings.HasPrefix(lUrl, "https://") {
+		return sdk.ErrUnknownRequest("LUrl must start with http:// or https://")
+	}
+	return nil
+}
 
 type MsgSetLUrl struct {
 	SUrl  string
@@ -32,6 +51,9 @@ func (msg MsgSetLUrl) ValidateBasic() sdk.Error {
 	}
 	if len(msg.SUrl) == 0 || len(msg.LUrl) == 0 {
 		return sdk.ErrUnknownRequest("SUrl and/or LUrl cannot be empty")
+	}
+	if err := validateLUrl(msg.LUrl); err != nil {
+		return err
 	}
 	return nil
 }

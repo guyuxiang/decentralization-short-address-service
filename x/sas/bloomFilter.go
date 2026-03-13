@@ -7,6 +7,10 @@ import (
 
 var GlobalBloomFilter *BloomFilter
 
+func init() {
+	GlobalBloomFilter = NewBloomFilter(1024*1024, 16)
+}
+
 type BitMap struct {
 	bits []byte
 	vmax uint

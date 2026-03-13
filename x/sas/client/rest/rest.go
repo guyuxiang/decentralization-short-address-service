@@ -3,6 +3,7 @@ package rest
 import (
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/cosmos/cosmos-sdk/client/context"
 	"sas/x/sas"
@@ -28,6 +29,9 @@ func RegisterRoutes(cliCtx context.CLIContext, r *mux.Router, cdc *codec.Codec, 
 	r.HandleFunc(fmt.Sprintf("/%s/adress/sell", storeName), setSellHandler(cdc, cliCtx)).Methods("PUT")
 	r.HandleFunc(fmt.Sprintf("/%s/adress/{%s}/lUrl", storeName, restName), lUrlHandler(cdc, cliCtx, storeName)).Methods("GET")
 	r.HandleFunc(fmt.Sprintf("/%s/adress/{%s}/lAdress", storeName, restName), lAdressHandler(cdc, cliCtx, storeName)).Methods("GET")
+
+	// Redirect route -访问短地址自动跳转长地址
+	r.HandleFunc("/s/{sUrl}", redirectHandler(cliCtx, storeName)).Methods("GET")
 }
 
 type buySUrlReq struct {
@@ -233,5 +237,34 @@ func sUrlsHandler(cdc *codec.Codec, cliCtx context.CLIContext, storeName string)
 			return
 		}
 		rest.PostProcessResponse(w, cdc, res, cliCtx.Indent)
+	}
+}
+
+func redirectHandler(cliCtx context.CLIContext, storeName string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		sUrl := vars["sUrl"]
+
+		res, err := cliCtx.QueryWithData(fmt.Sprintf("custom/%s/LUrl/%s", storeName, sUrl), nil)
+		if err != nil || len(res) == 0 {
+			http.NotFound(w, r)
+			return
+		}
+
+		var lUrlResp struct {
+			LUrl string `json:"lUrl"`
+		}
+		if err := cdc.UnmarshalJSON(res, &lUrlResp); err != nil || lUrlResp.LUrl == "" {
+			http.NotFound(w, r)
+			return
+		}
+
+		lUrl := strings.ToLower(lUrlResp.LUrl)
+		if !strings.HasPrefix(lUrl, "http://") && !strings.HasPrefix(lUrl, "https://") {
+			http.NotFound(w, r)
+			return
+		}
+
+		http.Redirect(w, r, lUrlResp.LUrl, http.StatusMovedPermanently)
 	}
 }

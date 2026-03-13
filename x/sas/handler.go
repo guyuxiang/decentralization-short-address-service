@@ -64,7 +64,7 @@ func handleMsgBuySUrl(ctx sdk.Context, keeper Keeper, msg MsgBuySUrl) sdk.Result
 
 func txUrl(ctx sdk.Context, keeper Keeper, msg MsgBuySUrl) sdk.Result {
 	if keeper.HasOwner(ctx, msg.SUrl) && !keeper.GetSell(ctx, msg.SUrl) {
-		return sdk.ErrInternal("Adress dose not sell").Result()
+		return sdk.ErrInternal("Address does not sell").Result()
 	}
 	if keeper.GetPrice(ctx, msg.SUrl).IsAllGT(msg.Bid) { // Checks if the the bid price is greater than the price paid by the current owner
 		return sdk.ErrInsufficientCoins("Bid not high enough").Result() // If not, throw an error
