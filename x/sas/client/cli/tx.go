@@ -17,7 +17,7 @@ import (
 )
 
 func GetCmdBuySUrl(cdc *codec.Codec) *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "buy-sUrl [sUrl] [amount]",
 		Short: "bid for existing sUrl or claim new sUrl",
 		Args:  cobra.ExactArgs(2),
@@ -35,7 +35,8 @@ func GetCmdBuySUrl(cdc *codec.Codec) *cobra.Command {
 				return err
 			}
 
-			msg := sas.NewMsgBuySUrl(args[0], coins, cliCtx.GetFromAddress())
+			length, _ := cmd.Flags().GetInt("length")
+			msg := sas.NewMsgBuySUrl(args[0], coins, cliCtx.GetFromAddress(), length)
 			err = msg.ValidateBasic()
 			if err != nil {
 				return err
@@ -46,6 +47,8 @@ func GetCmdBuySUrl(cdc *codec.Codec) *cobra.Command {
 			return utils.CompleteAndBroadcastTxCLI(txBldr, cliCtx, []sdk.Msg{msg})
 		},
 	}
+	cmd.Flags().Int("length", 0, "Length of the short URL (1-6, 0 for default 6)")
+	return cmd
 }
 
 func GetCmdSetLUrl(cdc *codec.Codec) *cobra.Command {

@@ -74,16 +74,18 @@ func (msg MsgSetLUrl) GetSigners() []sdk.AccAddress {
 }
 
 type MsgBuySUrl struct {
-	SUrl  string
-	Bid   sdk.Coins
-	Buyer sdk.AccAddress
+	SUrl   string
+	Bid    sdk.Coins
+	Buyer  sdk.AccAddress
+	Length int
 }
 
-func NewMsgBuySUrl(sUrl string, bid sdk.Coins, buyer sdk.AccAddress) MsgBuySUrl {
+func NewMsgBuySUrl(sUrl string, bid sdk.Coins, buyer sdk.AccAddress, length int) MsgBuySUrl {
 	return MsgBuySUrl{
-		SUrl:  sUrl,
-		Bid:   bid,
-		Buyer: buyer,
+		SUrl:   sUrl,
+		Bid:    bid,
+		Buyer:  buyer,
+		Length: length,
 	}
 }
 
@@ -95,8 +97,11 @@ func (msg MsgBuySUrl) Type() string { return "buy_sUrl" }
 
 // ValidateBasic runs stateless checks on the message
 func (msg MsgBuySUrl) ValidateBasic() sdk.Error {
-	if len(msg.SUrl) > 0 && len(msg.SUrl) != 6 {
-		return sdk.ErrInvalidAddress(msg.SUrl)
+	if len(msg.SUrl) > 0 && (len(msg.SUrl) < 1 || len(msg.SUrl) > 6) {
+		return sdk.ErrInvalidAddress("SUrl length must be 1-6")
+	}
+	if msg.Length > 0 && (msg.Length < 1 || msg.Length > 6) {
+		return sdk.ErrUnknownRequest("Length must be 1-6")
 	}
 	if msg.Buyer.Empty() {
 		return sdk.ErrInvalidAddress(msg.Buyer.String())

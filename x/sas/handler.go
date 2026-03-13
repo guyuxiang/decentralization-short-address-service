@@ -38,7 +38,7 @@ func NewHandler(keeper Keeper) sdk.Handler {
 }
 
 func handleMsgSetLUrl(ctx sdk.Context, keeper Keeper, msg MsgSetLUrl) sdk.Result {
-	if !CheckSUrlExist(ctx, keeper, msg.SUrl) {
+	if !CheckSUrlExist(ctx, keeper, msg.SUrl, len(msg.SUrl)) {
 		return sdk.ErrUnauthorized("Incorrect Surl").Result()
 	}
 	if !msg.Owner.Equals(keeper.GetOwner(ctx, msg.SUrl)) {
@@ -58,8 +58,13 @@ func handleMsgSetLUrl(ctx sdk.Context, keeper Keeper, msg MsgSetLUrl) sdk.Result
 func handleMsgBuySUrl(ctx sdk.Context, keeper Keeper, msg MsgBuySUrl) sdk.Result {
 	fee := calculateFee(msg.Bid)
 
+	urlLength := msg.Length
+	if urlLength == 0 {
+		urlLength = 6
+	}
+
 	if len(msg.SUrl) != 0 {
-		if CheckSUrlExist(ctx, keeper, msg.SUrl) {
+		if CheckSUrlExist(ctx, keeper, msg.SUrl, len(msg.SUrl)) {
 			if keeper.IsExpired(ctx, msg.SUrl) {
 				keeper.DeleteLAddress(ctx, msg.SUrl)
 			} else {
@@ -77,7 +82,7 @@ func handleMsgBuySUrl(ctx sdk.Context, keeper Keeper, msg MsgBuySUrl) sdk.Result
 		keeper.StoreLAddress(ctx, msg.SUrl, msg.Buyer, msg.Bid, DefaultRentDuration)
 		keeper.AddToBloomFilter(msg.SUrl)
 	} else {
-		newSUrl := ApplyShortUrl(ctx, keeper)
+		newSUrl := ApplyShortUrl(ctx, keeper, urlLength)
 		_, _, err := keeper.coinKeeper.SubtractCoins(ctx, msg.Buyer, msg.Bid)
 		if err != nil {
 			rullBackNumber()
@@ -118,7 +123,7 @@ func txUrl(ctx sdk.Context, keeper Keeper, msg MsgBuySUrl, fee sdk.Coins) sdk.Re
 }
 
 func handleMsgSetSell(ctx sdk.Context, keeper Keeper, msg MsgSetSell) sdk.Result {
-	if !CheckSUrlExist(ctx, keeper, msg.SUrl) {
+	if !CheckSUrlExist(ctx, keeper, msg.SUrl, len(msg.SUrl)) {
 		return sdk.ErrUnauthorized("Incorrect Surl").Result()
 	}
 	if !msg.Owner.Equals(keeper.GetOwner(ctx, msg.SUrl)) {
@@ -132,7 +137,7 @@ func handleMsgSetSell(ctx sdk.Context, keeper Keeper, msg MsgSetSell) sdk.Result
 }
 
 func handleMsgSetPrice(ctx sdk.Context, keeper Keeper, msg MsgSetPrice) sdk.Result {
-	if !CheckSUrlExist(ctx, keeper, msg.SUrl) {
+	if !CheckSUrlExist(ctx, keeper, msg.SUrl, len(msg.SUrl)) {
 		return sdk.ErrUnauthorized("Incorrect Surl").Result()
 	}
 	if !msg.Owner.Equals(keeper.GetOwner(ctx, msg.SUrl)) {
@@ -146,7 +151,7 @@ func handleMsgSetPrice(ctx sdk.Context, keeper Keeper, msg MsgSetPrice) sdk.Resu
 }
 
 func handleMsgRenew(ctx sdk.Context, keeper Keeper, msg MsgRenew) sdk.Result {
-	if !CheckSUrlExist(ctx, keeper, msg.SUrl) {
+	if !CheckSUrlExist(ctx, keeper, msg.SUrl, len(msg.SUrl)) {
 		return sdk.ErrUnauthorized("Incorrect Surl").Result()
 	}
 	if !msg.Owner.Equals(keeper.GetOwner(ctx, msg.SUrl)) {
@@ -170,7 +175,7 @@ func handleMsgRenew(ctx sdk.Context, keeper Keeper, msg MsgRenew) sdk.Result {
 }
 
 func handleMsgBuySUrlEscrow(ctx sdk.Context, keeper Keeper, msg MsgBuySUrlEscrow) sdk.Result {
-	if !CheckSUrlExist(ctx, keeper, msg.SUrl) {
+	if !CheckSUrlExist(ctx, keeper, msg.SUrl, len(msg.SUrl)) {
 		return sdk.ErrUnauthorized("SUrl does not exist").Result()
 	}
 	if keeper.IsExpired(ctx, msg.SUrl) {

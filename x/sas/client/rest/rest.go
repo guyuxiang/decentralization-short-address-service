@@ -31,7 +31,7 @@ func RegisterRoutes(cliCtx context.CLIContext, r *mux.Router, cdc *codec.Codec, 
 	r.HandleFunc(fmt.Sprintf("/%s/adress/{%s}/lAddress", storeName, restName), lAddressHandler(cdc, cliCtx, storeName)).Methods("GET")
 
 	// Redirect route -访问短地址自动跳转长地址
-	r.HandleFunc("/s/{sUrl}", redirectHandler(cliCtx, storeName, cdc)).Methods("GET")
+	r.HandleFunc("/{sUrl}", redirectHandler(cliCtx, storeName, cdc)).Methods("GET")
 
 	// Stats route
 	r.HandleFunc(fmt.Sprintf("/%s/stats", storeName), statsHandler(cdc, cliCtx, storeName)).Methods("GET")
@@ -42,6 +42,7 @@ type buySUrlReq struct {
 	SUrl    string       `json:"sUrl"`
 	Amount  string       `json:"amount"`
 	Buyer   string       `json:"buyer"`
+	Length  int          `json:"length"`
 }
 
 func buySUrlHandler(cdc *codec.Codec, cliCtx context.CLIContext) http.HandlerFunc {
@@ -71,7 +72,7 @@ func buySUrlHandler(cdc *codec.Codec, cliCtx context.CLIContext) http.HandlerFun
 		}
 
 		// create the message
-		msg := sas.NewMsgBuySUrl(req.SUrl, coins, addr)
+		msg := sas.NewMsgBuySUrl(req.SUrl, coins, addr, req.Length)
 		err = msg.ValidateBasic()
 		if err != nil {
 			rest.WriteErrorResponse(w, http.StatusBadRequest, err.Error())

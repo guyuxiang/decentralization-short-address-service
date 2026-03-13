@@ -25,9 +25,19 @@ func Encode(number int) string {
 }
 
 func Encode6(number int) string {
+	return EncodeFixedLength(number, 6)
+}
+
+func EncodeFixedLength(number int, length int) string {
+	if length < 1 {
+		length = 1
+	}
+	if length > 6 {
+		length = 6
+	}
 	inStr := Encode(number)
 	var outStr = ""
-	for i := 0; i < 6; i++ {
+	for i := 0; i < length; i++ {
 		if i < len(inStr) {
 			outStr = string(inStr[i]) + outStr
 		} else {

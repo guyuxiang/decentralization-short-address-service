@@ -30,23 +30,38 @@ func rullBackNumber() {
 	atomic.AddUint32(gC.number, ^uint32(0))
 }
 
-func ApplyShortUrl(ctx sdk.Context, keeper Keeper) string {
+func ApplyShortUrl(ctx sdk.Context, keeper Keeper, length int) string {
+	if length < 1 {
+		length = 6
+	}
+	if length > 6 {
+		length = 6
+	}
 	number := applyNumber()
-	newSUrl := Encode6(int(number))
-	if CheckSUrlExist(ctx, keeper, newSUrl) {
-		newSUrl = ApplyShortUrl(ctx, keeper)
+	newSUrl := EncodeFixedLength(int(number), length)
+	if CheckSUrlExist(ctx, keeper, newSUrl, length) {
+		newSUrl = ApplyShortUrl(ctx, keeper, length)
 	}
 	return newSUrl
 }
 
-func CheckSUrlExist(ctx sdk.Context, keeper Keeper, sUrl string) bool {
+func CheckSUrlExist(ctx sdk.Context, keeper Keeper, sUrl string, length int) bool {
 	if !QuickCheckSUrlExist(sUrl) {
 		return false
 	}
-	if Decode(sUrl) <= int(GetNumber()) || keeper.isSUrlExist(ctx, sUrl) {
+	maxNum := calculateMaxNumberForLength(length)
+	if Decode(sUrl) <= int(GetNumber()) && Decode(sUrl) <= maxNum || keeper.isSUrlExist(ctx, sUrl) {
 		return true
 	}
 	return false
+}
+
+func calculateMaxNumberForLength(length int) int {
+	result := 1
+	for i := 0; i < length; i++ {
+		result = result * 62
+	}
+	return result - 1
 }
 
 func QuickCheckSUrlExist(sUrl string) bool {
