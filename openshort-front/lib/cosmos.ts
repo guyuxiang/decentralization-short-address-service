@@ -14,7 +14,7 @@ interface BroadcastTxResponse {
   readonly rawLog: string;
 }
 
-export const CHAIN_ID = process.env.NEXT_PUBLIC_CHAIN_ID || 'openshort';
+export const CHAIN_ID = process.env.NEXT_PUBLIC_CHAIN_ID || 'test-chain';
 export const RPC_ENDPOINT = process.env.NEXT_PUBLIC_RPC_ENDPOINT || '/api/cosmos';
 export const RPC_WS_ENDPOINT = process.env.NEXT_PUBLIC_RPC_WS_ENDPOINT || 'ws://43.167.195.109:26657';
 export const REST_ENDPOINT = process.env.NEXT_PUBLIC_REST_ENDPOINT || 'http://localhost:80';
@@ -28,7 +28,7 @@ const STAKE_CURRENCY = {
 export const CHAIN_INFO = {
   chainId: CHAIN_ID,
   chainName: 'OpenShort App Chain',
-  rpc: RPC_ENDPOINT,
+  rpc: RPC_WS_ENDPOINT,
   rest: REST_ENDPOINT,
   bip44: {
     coinType: 118,
