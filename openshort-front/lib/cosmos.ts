@@ -1,6 +1,11 @@
-import { AminoMsg, OfflineAminoSigner } from '@cosmjs/amino';
-import { SigningStargateClient, StdFee, SigningStargateClientOptions } from '@cosmjs/stargate';
+import { AminoMsg, OfflineAminoSigner, StdFee } from '@cosmjs/amino';
+import { SigningStargateClient } from '@cosmjs/stargate';
 import { ChainInfo, Keplr } from '@keplr-wallet/types';
+
+interface AminoSigner {
+  sign(signerAddress: string, messages: AminoMsg[], fee: StdFee, memo: string): Promise<{ signature: Uint8Array }>;
+  getAccounts(): Promise<{ address: string; pubkey: Uint8Array }[]>;
+}
 
 interface BroadcastTxResponse {
   readonly code: number;
@@ -57,7 +62,7 @@ const SELL_FEE: StdFee = {
 };
 
 export interface WalletConnection {
-  signer: OfflineAminoSigner;
+  signer: AminoSigner;
   address: string;
 }
 
@@ -75,38 +80,51 @@ function normalizeAmount(amount: string) {
 }
 
 async function sendSasTx(
-  signer: OfflineAminoSigner,
+  signer: AminoSigner,
   signerAddress: string,
   rpcEndpoint: string,
   msg: AminoMsg,
   fee: StdFee,
   memo = ''
 ): Promise<{ txHash: string }> {
-  const client = await SigningStargateClient.offline(signer) as any;
+  const { signature } = await signer.sign(signerAddress, [msg], fee, memo);
   
-  const signedTx = await client.sign(signerAddress, [msg as any], fee, memo);
+  const accounts = await signer.getAccounts();
+  const pubkey = accounts.find(a => a.address === signerAddress);
   
-  const txBytes = client.encode(signedTx);
+  if (!pubkey) {
+    throw new Error('Account not found');
+  }
   
-  const broadcastRes = await fetch(rpcEndpoint, {
+  const tx = {
+    msg: [msg],
+    fee: fee,
+    memo: memo,
+    signatures: [{
+      pub_key: {
+        type: 'tendermint/PubKeySecp256k1',
+        value: btoa(String.fromCharCode(...pubkey.pubkey)),
+      },
+      signature: btoa(String.fromCharCode(...signature)),
+    }],
+  };
+  
+  const restEndpoint = REST_ENDPOINT;
+  const broadcastRes = await fetch(`${restEndpoint}/txs`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      jsonrpc: '2.0',
-      id: 1,
-      method: 'broadcast_tx_commit',
-      params: { tx: Buffer.from(txBytes).toString('base64') },
-    }),
+    body: JSON.stringify(tx),
   });
+  
+  if (!broadcastRes.ok) {
+    const errorText = await broadcastRes.text();
+    throw new Error(`Broadcast failed: ${errorText}`);
+  }
   
   const broadcastData = await broadcastRes.json();
   
-  if (broadcastData.result && broadcastData.result.check_tx && broadcastData.result.check_tx.code !== 0) {
-    throw new Error(broadcastData.result.check_tx.log || `Tx failed (code ${broadcastData.result.check_tx.code})`);
-  }
-  
   return {
-    txHash: broadcastData.result.hash,
+    txHash: broadcastData.txhash || broadcastData.tx_hash || 'unknown',
   };
 }
 
@@ -119,7 +137,8 @@ export async function connectKeplrWallet(): Promise<WalletConnection> {
     throw new Error('Keplr extension is not installed');
   }
   await keplr.experimentalSuggestChain(CHAIN_INFO);
-  const signer: OfflineAminoSigner = await keplr.getOfflineSignerOnlyAmino(CHAIN_ID);
+  const offlineSigner: OfflineAminoSigner = await keplr.getOfflineSignerOnlyAmino(CHAIN_ID);
+  const signer: AminoSigner = offlineSigner as unknown as AminoSigner;
   const accounts = await signer.getAccounts();
   if (!accounts.length) {
     throw new Error('No accounts available from Keplr');
@@ -143,7 +162,7 @@ export function disconnectWallet() {
 const MSG_TYPE_PREFIX = 'openshort/sas';
 
 export async function buyShortLink(
-  signer: OfflineAminoSigner,
+  signer: AminoSigner,
   signerAddress: string,
   rpcEndpoint: string,
   bidAmount: string,
@@ -167,7 +186,7 @@ export async function buyShortLink(
 }
 
 export async function setLongUrl(
-  signer: OfflineAminoSigner,
+  signer: AminoSigner,
   signerAddress: string,
   rpcEndpoint: string,
   sUrl: string,
@@ -186,7 +205,7 @@ export async function setLongUrl(
 }
 
 export async function setSellFlag(
-  signer: OfflineAminoSigner,
+  signer: AminoSigner,
   signerAddress: string,
   rpcEndpoint: string,
   sUrl: string,
@@ -205,7 +224,7 @@ export async function setSellFlag(
 }
 
 export async function setPrice(
-  signer: OfflineAminoSigner,
+  signer: AminoSigner,
   signerAddress: string,
   rpcEndpoint: string,
   sUrl: string,
