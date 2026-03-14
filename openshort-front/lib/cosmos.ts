@@ -11,6 +11,7 @@ interface BroadcastTxResponse {
 
 export const CHAIN_ID = process.env.NEXT_PUBLIC_CHAIN_ID || 'openshort';
 export const RPC_ENDPOINT = process.env.NEXT_PUBLIC_RPC_ENDPOINT || '/api/cosmos';
+export const RPC_WS_ENDPOINT = process.env.NEXT_PUBLIC_RPC_WS_ENDPOINT || 'ws://43.167.195.109:26657';
 export const REST_ENDPOINT = process.env.NEXT_PUBLIC_REST_ENDPOINT || 'http://localhost:80';
 
 const STAKE_CURRENCY = {
@@ -108,7 +109,7 @@ export async function connectKeplrWallet(): Promise<WalletConnection> {
     return cachedConnection;
   }
   
-  const client = await SigningStargateClient.connect(RPC_ENDPOINT) as any;
+  const client = await SigningStargateClient.connect(RPC_WS_ENDPOINT) as any;
   cachedConnection = {
     client,
     address: accounts[0].address,
