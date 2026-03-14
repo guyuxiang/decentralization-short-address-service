@@ -170,7 +170,22 @@ export async function connectKeplrWallet(): Promise<WalletConnection> {
     return cachedConnection;
   }
   
-  const signer: AminoSigner = offlineSigner as unknown as AminoSigner;
+  const signer: AminoSigner = {
+    sign: async (signerAddress: string, messages: AminoMsg[], fee: StdFee, memo: string) => {
+      return await keplr.signAmino(chainId, signerAddress, {
+        chain_id: chainId,
+        account_number: "0",
+        sequence: "0",
+        fee: fee,
+        msgs: messages,
+        memo: memo,
+      });
+    },
+    getAccounts: async () => {
+      return await offlineSigner.getAccounts();
+    }
+  };
+  
   cachedConnection = {
     signer,
     address: accounts[0].address,
