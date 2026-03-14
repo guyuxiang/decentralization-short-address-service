@@ -9,20 +9,7 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: false,
   },
   async rewrites() {
-    return [
-      {
-        source: '/api/sas/stats',
-        destination: 'http://localhost:80/sas/stats',
-      },
-      {
-        source: '/api/sas/links',
-        destination: 'http://localhost:80/sas/adress/sUrls/detail',
-      },
-      {
-        source: '/api/sas/owner/:path*',
-        destination: 'http://localhost:80/sas/adress/owner/:path*',
-      },
-    ];
+    return [];
   },
   images: {
     remotePatterns: [
