@@ -78,5 +78,17 @@ export const api = {
   },
 
   async setLongUrl(sUrl: string, lUrl: string, owner: string) {
+  },
+
+  async claimFaucet(address: string): Promise<{ success: boolean; message: string }> {
+    const res = await fetch(`${BASE_URL}/faucet`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ address }),
+    });
+    if (!res.ok) {
+      return { success: false, message: 'Failed to claim tokens' };
+    }
+    return res.json();
   }
 };

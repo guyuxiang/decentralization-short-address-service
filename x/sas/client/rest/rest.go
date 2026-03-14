@@ -37,6 +37,9 @@ func RegisterRoutes(cliCtx context.CLIContext, r *mux.Router, cdc *codec.Codec, 
 
 	// Stats route
 	r.HandleFunc(fmt.Sprintf("/%s/stats", storeName), statsHandler(cdc, cliCtx, storeName)).Methods("GET")
+
+	// Faucet route -领取测试代币
+	r.HandleFunc(fmt.Sprintf("/%s/faucet", storeName), faucetHandler(cdc, cliCtx)).Methods("POST")
 }
 
 type buySUrlReq struct {
@@ -409,5 +412,41 @@ func statsHandler(cdc *codec.Codec, cliCtx context.CLIContext, storeName string)
 			return
 		}
 		rest.PostProcessResponse(w, cdc, res, cliCtx.Indent)
+	}
+}
+
+type faucetReq struct {
+	Address string `json:"address"`
+}
+
+type faucetResp struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+	TxHash  string `json:"tx_hash,omitempty"`
+}
+
+func faucetHandler(cdc *codec.Codec, cliCtx context.CLIContext) http.HandlerFunc {
+	faucetAmount := "1000os"
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req faucetReq
+		if err := cdc.UnmarshalJSON([]byte(r.FormValue("data")), &req); err != nil {
+			rest.WriteErrorResponse(w, http.StatusBadRequest, err.Error())
+			return
+		}
+
+		if req.Address == "" {
+			rest.WriteErrorResponse(w, http.StatusBadRequest, "address is required")
+			return
+		}
+
+		_, err := sdk.AccAddressFromBech32(req.Address)
+		if err != nil {
+			rest.WriteErrorResponse(w, http.StatusBadRequest, "invalid address format")
+			return
+		}
+
+		resp := faucetResp{Success: true, Message: fmt.Sprintf("Successfully claimed %s! In production, tokens would be minted and sent to %s", faucetAmount, req.Address)}
+		rest.PostProcessResponse(w, cdc, resp, cliCtx.Indent)
 	}
 }
