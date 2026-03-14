@@ -57,7 +57,7 @@ const SELL_FEE: StdFee = {
 };
 
 export interface WalletConnection {
-  client: SigningStargateClient;
+  signer: OfflineAminoSigner;
   address: string;
 }
 
@@ -75,18 +75,38 @@ function normalizeAmount(amount: string) {
 }
 
 async function sendSasTx(
-  client: SigningStargateClient,
-  signer: string,
+  signer: OfflineAminoSigner,
+  signerAddress: string,
+  rpcEndpoint: string,
   msg: AminoMsg,
   fee: StdFee,
   memo = ''
 ): Promise<{ txHash: string }> {
-  const response = await client.signAndBroadcast(signer, [msg as any], fee, memo) as any;
-  if (response.code && response.code !== 0) {
-    throw new Error(response.rawLog ?? `Tx failed (code ${response.code})`);
+  const client = await SigningStargateClient.offline(signer) as any;
+  
+  const signedTx = await client.sign(signerAddress, [msg as any], fee, memo);
+  
+  const txBytes = client.encode(signedTx);
+  
+  const broadcastRes = await fetch(rpcEndpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'broadcast_tx_commit',
+      params: { tx: Buffer.from(txBytes).toString('base64') },
+    }),
+  });
+  
+  const broadcastData = await broadcastRes.json();
+  
+  if (broadcastData.result && broadcastData.result.check_tx && broadcastData.result.check_tx.code !== 0) {
+    throw new Error(broadcastData.result.check_tx.log || `Tx failed (code ${broadcastData.result.check_tx.code})`);
   }
+  
   return {
-    txHash: response.transactionHash || response.hash,
+    txHash: broadcastData.result.hash,
   };
 }
 
@@ -109,9 +129,8 @@ export async function connectKeplrWallet(): Promise<WalletConnection> {
     return cachedConnection;
   }
   
-  const client = await SigningStargateClient.offline(signer) as any;
   cachedConnection = {
-    client,
+    signer,
     address: accounts[0].address,
   };
   return cachedConnection;
@@ -124,8 +143,9 @@ export function disconnectWallet() {
 const MSG_TYPE_PREFIX = 'openshort/sas';
 
 export async function buyShortLink(
-  client: SigningStargateClient,
-  buyer: string,
+  signer: OfflineAminoSigner,
+  signerAddress: string,
+  rpcEndpoint: string,
   bidAmount: string,
   options: { sUrl?: string; length?: number; memo?: string } = {}
 ) {
@@ -139,16 +159,17 @@ export async function buyShortLink(
           amount: normalizeAmount(bidAmount),
         },
       ],
-      Buyer: buyer,
+      Buyer: signerAddress,
       Length: options.length ?? 0,
     },
   };
-  return sendSasTx(client, buyer, msg, BUY_FEE, options.memo);
+  return sendSasTx(signer, signerAddress, rpcEndpoint, msg, BUY_FEE, options.memo);
 }
 
 export async function setLongUrl(
-  client: SigningStargateClient,
-  owner: string,
+  signer: OfflineAminoSigner,
+  signerAddress: string,
+  rpcEndpoint: string,
   sUrl: string,
   lUrl: string,
   memo?: string
@@ -158,15 +179,16 @@ export async function setLongUrl(
     value: {
       SUrl: sUrl,
       LUrl: lUrl,
-      Owner: owner,
+      Owner: signerAddress,
     },
   };
-  return sendSasTx(client, owner, msg, SET_FEE, memo);
+  return sendSasTx(signer, signerAddress, rpcEndpoint, msg, SET_FEE, memo);
 }
 
 export async function setSellFlag(
-  client: SigningStargateClient,
-  owner: string,
+  signer: OfflineAminoSigner,
+  signerAddress: string,
+  rpcEndpoint: string,
   sUrl: string,
   isSell: boolean,
   memo?: string
@@ -176,15 +198,16 @@ export async function setSellFlag(
     value: {
       SUrl: sUrl,
       IsSell: isSell,
-      Owner: owner,
+      Owner: signerAddress,
     },
   };
-  return sendSasTx(client, owner, msg, SELL_FEE, memo);
+  return sendSasTx(signer, signerAddress, rpcEndpoint, msg, SELL_FEE, memo);
 }
 
 export async function setPrice(
-  client: SigningStargateClient,
-  owner: string,
+  signer: OfflineAminoSigner,
+  signerAddress: string,
+  rpcEndpoint: string,
   sUrl: string,
   price: string,
   memo?: string
@@ -199,10 +222,10 @@ export async function setPrice(
           amount: normalizeAmount(price),
         },
       ],
-      Owner: owner,
+      Owner: signerAddress,
     },
   };
-  return sendSasTx(client, owner, msg, SET_FEE, memo);
+  return sendSasTx(signer, signerAddress, rpcEndpoint, msg, SET_FEE, memo);
 }
 
 declare global {

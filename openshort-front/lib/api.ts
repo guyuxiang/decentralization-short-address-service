@@ -1,4 +1,4 @@
-import { REST_ENDPOINT, connectKeplrWallet, buyShortLink, setLongUrl, setSellFlag, setPrice } from '@/lib/cosmos';
+import { REST_ENDPOINT, RPC_WS_ENDPOINT, connectKeplrWallet, buyShortLink, setLongUrl, setSellFlag, setPrice } from '@/lib/cosmos';
 
 const BASE_URL = '/api/sas';
 
@@ -96,12 +96,12 @@ export const api = {
     try {
       const connection = await connectKeplrWallet();
       const length = customSUrl ? 0 : Math.floor(Math.random() * 3) + 4;
-      const result = await buyShortLink(connection.client, owner, '1', {
+      const result = await buyShortLink(connection.signer, owner, RPC_WS_ENDPOINT, '1', {
         sUrl: customSUrl || undefined,
         length: length,
       });
       if (customSUrl) {
-        await setLongUrl(connection.client, owner, customSUrl, lUrl);
+        await setLongUrl(connection.signer, owner, RPC_WS_ENDPOINT, customSUrl, lUrl);
       }
       return { success: true, txHash: result.txHash, sUrl: customSUrl || `s${length}` };
     } catch (e: any) {
@@ -113,7 +113,7 @@ export const api = {
   async updateLongUrl(sUrl: string, lUrl: string, owner: string): Promise<{ success: boolean; txHash?: string; message?: string }> {
     try {
       const connection = await connectKeplrWallet();
-      const result = await setLongUrl(connection.client, owner, sUrl, lUrl);
+      const result = await setLongUrl(connection.signer, owner, RPC_WS_ENDPOINT, sUrl, lUrl);
       return { success: true, txHash: result.txHash };
     } catch (e: any) {
       console.error('Failed to update long URL:', e);
@@ -124,8 +124,8 @@ export const api = {
   async listForSale(sUrl: string, price: string, owner: string): Promise<{ success: boolean; txHash?: string; message?: string }> {
     try {
       const connection = await connectKeplrWallet();
-      await setSellFlag(connection.client, owner, sUrl, true);
-      const result = await setPrice(connection.client, owner, sUrl, price);
+      await setSellFlag(connection.signer, owner, RPC_WS_ENDPOINT, sUrl, true);
+      const result = await setPrice(connection.signer, owner, RPC_WS_ENDPOINT, sUrl, price);
       return { success: true, txHash: result.txHash };
     } catch (e: any) {
       console.error('Failed to list for sale:', e);
@@ -136,7 +136,7 @@ export const api = {
   async buyFromMarketplace(sUrl: string, price: string, buyer: string): Promise<{ success: boolean; txHash?: string; message?: string }> {
     try {
       const connection = await connectKeplrWallet();
-      const result = await buyShortLink(connection.client, buyer, price, { sUrl });
+      const result = await buyShortLink(connection.signer, buyer, RPC_WS_ENDPOINT, price, { sUrl });
       return { success: true, txHash: result.txHash };
     } catch (e: any) {
       console.error('Failed to buy link:', e);
