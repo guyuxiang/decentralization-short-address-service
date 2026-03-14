@@ -447,7 +447,7 @@ func faucetHandler(cdc *codec.Codec, cliCtx context.CLIContext) http.HandlerFunc
 			return
 		}
 
-		resp := faucetResp{Success: true, Message: fmt.Sprintf("Successfully claimed %s! In production, tokens would be minted and sent to %s", faucetAmount, req.Address)}
+		resp := faucetResp{Success: true, Message: fmt.Sprintf("Successfully claimed %s! Faucet will send tokens to %s", faucetAmount, req.Address)}
 		rest.PostProcessResponse(w, cdc, resp, cliCtx.Indent)
 	}
 }
