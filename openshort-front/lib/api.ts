@@ -20,7 +20,7 @@ export interface Stats {
 
 export const api = {
   async getAllShortLinks(): Promise<ShortLink[]> {
-    const res = await fetch(`${BASE_URL}/sas/adress/sUrls/detail`);
+    const res = await fetch(`${BASE_URL}/links`);
     if (!res.ok) return [];
     const data = await res.json();
     if (data.result && Array.isArray(data.result)) {
@@ -38,7 +38,7 @@ export const api = {
   },
 
   async getStats(): Promise<Stats> {
-    const res = await fetch(`${BASE_URL}/sas/stats`);
+    const res = await fetch(`${BASE_URL}/stats`);
     if (!res.ok) return { totalLinks: 0, totalClicks: 0, topShortUrls: [] };
     const data = await res.json();
     return {
@@ -49,7 +49,7 @@ export const api = {
   },
 
   async getLongUrl(sUrl: string): Promise<string> {
-    const res = await fetch(`${BASE_URL}/sas/adress/${sUrl}/lUrl`);
+    const res = await fetch(`${BASE_URL}/links/${sUrl}/lUrl`);
     if (!res.ok) return '';
     const data = await res.json();
     return data.lUrl || '';
@@ -57,7 +57,7 @@ export const api = {
 
   async getLinksByOwner(owner: string): Promise<ShortLink[]> {
     if (!owner) return [];
-    const res = await fetch(`${BASE_URL}/sas/adress/owner/${owner}`);
+    const res = await fetch(`${BASE_URL}/owner/${owner}`);
     if (!res.ok) return [];
     const data = await res.json();
     if (data.result && Array.isArray(data.result)) {
