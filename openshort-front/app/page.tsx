@@ -24,7 +24,8 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { api } from '@/lib/api';
-import { 
+import { connectKeplrWallet } from '@/lib/cosmos';
+import {
   LineChart, 
   Line, 
   XAxis, 
@@ -204,6 +205,8 @@ const HomeView = ({ walletAddress }: { walletAddress: string | null }) => {
   const [customSUrl, setCustomSUrl] = useState('');
   const [shortLinks, setShortLinks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
+  const [createMsg, setCreateMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -218,6 +221,35 @@ const HomeView = ({ walletAddress }: { walletAddress: string | null }) => {
     };
     fetchData();
   }, []);
+
+  const handleCreateLink = async () => {
+    if (!walletAddress) {
+      setCreateMsg({ type: 'error', text: 'Please connect wallet first' });
+      return;
+    }
+    if (!url) {
+      setCreateMsg({ type: 'error', text: 'Please enter a URL' });
+      return;
+    }
+    setCreating(true);
+    setCreateMsg(null);
+    try {
+      const result = await api.createShortLink(url, customSUrl, walletAddress);
+      if (result.success) {
+        setCreateMsg({ type: 'success', text: `Link created! TX: ${result.txHash?.slice(0, 12)}...` });
+        setUrl('');
+        setCustomSUrl('');
+        const links = await api.getAllShortLinks();
+        setShortLinks(links);
+      } else {
+        setCreateMsg({ type: 'error', text: result.message || 'Failed to create link' });
+      }
+    } catch (e: any) {
+      setCreateMsg({ type: 'error', text: e.message || 'Failed to create link' });
+    } finally {
+      setCreating(false);
+    }
+  };
 
   const forSaleLinks = shortLinks.filter(link => link.sell);
   const totalClicks = shortLinks.reduce((sum, link) => sum + (link.clicks || 0), 0);
@@ -254,10 +286,19 @@ const HomeView = ({ walletAddress }: { walletAddress: string | null }) => {
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
                 />
-                <button className="px-6 py-2 bg-[#0055d4] text-white font-semibold rounded-lg hover:bg-[#0044aa] transition-colors">
-                  Create link
+                <button 
+                  onClick={handleCreateLink}
+                  disabled={creating || !url}
+                  className="px-6 py-2 bg-[#0055d4] text-white font-semibold rounded-lg hover:bg-[#0044aa] transition-colors disabled:opacity-50"
+                >
+                  {creating ? 'Creating...' : 'Create link'}
                 </button>
               </div>
+              {createMsg && (
+                <p className={`mt-2 text-sm font-medium ${createMsg.type === 'success' ? 'text-green-600' : 'text-red-600'}`}>
+                  {createMsg.text}
+                </p>
+              )}
             </div>
 
             <div className="pt-4 border-t border-gray-100">
@@ -704,9 +745,17 @@ export default function OpenShortApp() {
   const [activeView, setActiveView] = useState<View>('home');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
+  const [walletError, setWalletError] = useState<string | null>(null);
 
-  const connectWallet = () => {
-    setWalletAddress('cosmos1rxh8pl8k3gea67t4uhw2387v9hqpgz3u2awk2g');
+  const connectWallet = async () => {
+    try {
+      setWalletError(null);
+      const connection = await connectKeplrWallet();
+      setWalletAddress(connection.address);
+    } catch (e: any) {
+      console.error('Failed to connect wallet:', e);
+      setWalletError(e.message || 'Failed to connect wallet');
+    }
   };
 
   const renderView = () => {
