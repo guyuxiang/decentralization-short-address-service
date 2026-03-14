@@ -136,10 +136,32 @@ export async function connectKeplrWallet(): Promise<WalletConnection> {
   if (!keplr) {
     throw new Error('Keplr extension is not installed');
   }
-  await keplr.experimentalSuggestChain(CHAIN_INFO);
-  const offlineSigner: OfflineAminoSigner = await keplr.getOfflineSignerOnlyAmino(CHAIN_ID);
-  const signer: AminoSigner = offlineSigner as unknown as AminoSigner;
-  const accounts = await signer.getAccounts();
+
+  let chainId = CHAIN_ID;
+  try {
+    const statusRes = await fetch('/api/cosmos', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ method: 'status', params: [] })
+    });
+    const statusData = await statusRes.json();
+    if (statusData.result?.sync_info?.chain_id) {
+      chainId = statusData.result.sync_info.chain_id;
+    }
+  } catch (e) {
+    console.error('Failed to get chain ID:', e);
+  }
+
+  try {
+    await keplr.experimentalSuggestChain({ ...CHAIN_INFO, chainId });
+  } catch (e) {
+    // Chain might already be suggested, ignore error
+  }
+  
+  await keplr.enable(chainId);
+  
+  const offlineSigner = await keplr.getOfflineSignerOnlyAmino(chainId);
+  const accounts = await offlineSigner.getAccounts();
   if (!accounts.length) {
     throw new Error('No accounts available from Keplr');
   }
@@ -148,6 +170,7 @@ export async function connectKeplrWallet(): Promise<WalletConnection> {
     return cachedConnection;
   }
   
+  const signer: AminoSigner = offlineSigner as unknown as AminoSigner;
   cachedConnection = {
     signer,
     address: accounts[0].address,
