@@ -285,6 +285,15 @@ func (k Keeper) GetStats(ctx sdk.Context) Stats {
 	}
 	var stats Stats
 	k.cdc.MustUnmarshalJSON(bz, &stats)
+	
+	// 计算totalLinks
+	iterator := k.GetSUrlsIterator(ctx)
+	totalLinks := uint64(0)
+	for ; iterator.Valid(); iterator.Next() {
+		totalLinks++
+	}
+	stats.TotalLinks = totalLinks
+	
 	return stats
 }
 

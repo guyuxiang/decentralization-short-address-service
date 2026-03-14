@@ -1,18 +1,25 @@
-import { SigningAminoClient, StdFee, AminoMsg, OfflineAminoSigner } from '@cosmjs/amino';
-import type { ChainInfo, Keplr } from '@keplr-wallet/types';
-import type { BroadcastTxResponse } from '@cosmjs/stargate';
+import { AminoMsg, OfflineAminoSigner } from '@cosmjs/amino';
+import { SigningStargateClient, StdFee } from '@cosmjs/stargate';
+import { ChainInfo, Keplr } from '@keplr-wallet/types';
 
-export const CHAIN_ID = 'openshort';
-export const RPC_ENDPOINT = 'http://43.167.195.109:26657';
-export const REST_ENDPOINT = 'http://43.167.195.109:80';
+interface BroadcastTxResponse {
+  readonly code: number;
+  readonly hash: string;
+  readonly height: number;
+  readonly rawLog: string;
+}
+
+export const CHAIN_ID = process.env.NEXT_PUBLIC_CHAIN_ID || 'openshort';
+export const RPC_ENDPOINT = process.env.NEXT_PUBLIC_RPC_ENDPOINT || 'http://localhost:26657';
+export const REST_ENDPOINT = process.env.NEXT_PUBLIC_REST_ENDPOINT || 'http://localhost:80';
 
 const STAKE_CURRENCY = {
   coinDenom: 'OS',
-  coinMinimalDenom: 'os',
+  coinMinimalDenom: 'uos',
   coinDecimals: 6,
 };
 
-export const CHAIN_INFO: ChainInfo = {
+export const CHAIN_INFO = {
   chainId: CHAIN_ID,
   chainName: 'OpenShort App Chain',
   rpc: RPC_ENDPOINT,
@@ -31,13 +38,7 @@ export const CHAIN_INFO: ChainInfo = {
   currencies: [STAKE_CURRENCY],
   feeCurrencies: [STAKE_CURRENCY],
   stakeCurrency: STAKE_CURRENCY,
-  gasPriceStep: {
-    low: 0.001,
-    average: 0.002,
-    high: 0.003,
-  },
-  features: ['stargate'],
-};
+} as unknown as ChainInfo;
 
 const BUY_FEE: StdFee = {
   amount: [{ denom: STAKE_CURRENCY.coinMinimalDenom, amount: '200' }],
@@ -55,7 +56,7 @@ const SELL_FEE: StdFee = {
 };
 
 export interface WalletConnection {
-  client: SigningAminoClient;
+  client: SigningStargateClient;
   address: string;
 }
 
@@ -66,34 +67,31 @@ function normalizeAmount(amount: string) {
   if (!cleaned) {
     throw new Error('Amount is required');
   }
-  if (!/^[0-9]+(\\.[0-9]+)?$/.test(cleaned)) {
+  if (!/^[0-9]+(\.[0-9]+)?$/.test(cleaned)) {
     throw new Error('Amount must be a number');
   }
   return cleaned;
 }
 
 async function sendSasTx(
-  client: SigningAminoClient,
+  client: SigningStargateClient,
   signer: string,
   msg: AminoMsg,
   fee: StdFee,
   memo = ''
 ): Promise<{ txHash: string }> {
-  const response: BroadcastTxResponse = await client.signAndBroadcast(signer, [msg], fee, memo);
+  const response = await client.signAndBroadcast(signer, [msg as any], fee, memo) as any;
   if (response.code && response.code !== 0) {
     throw new Error(response.rawLog ?? `Tx failed (code ${response.code})`);
   }
   return {
-    txHash: response.transactionHash,
+    txHash: response.transactionHash || response.hash,
   };
 }
 
 export async function connectKeplrWallet(): Promise<WalletConnection> {
   if (typeof window === 'undefined') {
     throw new Error('Keplr wallet must be used in a browser environment');
-  }
-  if (cachedConnection) {
-    return cachedConnection;
   }
   const keplr = window.keplr;
   if (!keplr) {
@@ -105,7 +103,12 @@ export async function connectKeplrWallet(): Promise<WalletConnection> {
   if (!accounts.length) {
     throw new Error('No accounts available from Keplr');
   }
-  const client = await SigningAminoClient.connectWithSigner(RPC_ENDPOINT, signer);
+  
+  if (cachedConnection && cachedConnection.address === accounts[0].address) {
+    return cachedConnection;
+  }
+  
+  const client = await SigningStargateClient.connect(RPC_ENDPOINT) as any;
   cachedConnection = {
     client,
     address: accounts[0].address,
@@ -114,20 +117,19 @@ export async function connectKeplrWallet(): Promise<WalletConnection> {
 }
 
 export function disconnectWallet() {
-  if (cachedConnection) {
-    cachedConnection.client.disconnect();
-    cachedConnection = null;
-  }
+  cachedConnection = null;
 }
 
+const MSG_TYPE_PREFIX = 'openshort/sas';
+
 export async function buyShortLink(
-  client: SigningAminoClient,
+  client: SigningStargateClient,
   buyer: string,
   bidAmount: string,
   options: { sUrl?: string; length?: number; memo?: string } = {}
 ) {
   const msg: AminoMsg = {
-    type: 'sas/BuySUrl',
+    type: `${MSG_TYPE_PREFIX}/BuySUrl`,
     value: {
       SUrl: options.sUrl ?? '',
       Bid: [
@@ -144,14 +146,14 @@ export async function buyShortLink(
 }
 
 export async function setLongUrl(
-  client: SigningAminoClient,
+  client: SigningStargateClient,
   owner: string,
   sUrl: string,
   lUrl: string,
   memo?: string
 ) {
   const msg: AminoMsg = {
-    type: 'sas/SetLUrl',
+    type: `${MSG_TYPE_PREFIX}/SetLUrl`,
     value: {
       SUrl: sUrl,
       LUrl: lUrl,
@@ -162,14 +164,14 @@ export async function setLongUrl(
 }
 
 export async function setSellFlag(
-  client: SigningAminoClient,
+  client: SigningStargateClient,
   owner: string,
   sUrl: string,
   isSell: boolean,
   memo?: string
 ) {
   const msg: AminoMsg = {
-    type: 'sas/SetSell',
+    type: `${MSG_TYPE_PREFIX}/SetSell`,
     value: {
       SUrl: sUrl,
       IsSell: isSell,
@@ -180,14 +182,14 @@ export async function setSellFlag(
 }
 
 export async function setPrice(
-  client: SigningAminoClient,
+  client: SigningStargateClient,
   owner: string,
   sUrl: string,
   price: string,
   memo?: string
 ) {
   const msg: AminoMsg = {
-    type: 'sas/SetPrice',
+    type: `${MSG_TYPE_PREFIX}/SetPrice`,
     value: {
       SUrl: sUrl,
       Bid: [

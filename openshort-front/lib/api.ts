@@ -1,6 +1,6 @@
 import { REST_ENDPOINT } from '@/lib/cosmos';
 
-const BASE_URL = REST_ENDPOINT;
+const BASE_URL = '/api/sas';
 
 export interface ShortLink {
   sUrl: string;
@@ -15,46 +15,68 @@ export interface ShortLink {
 export interface Stats {
   totalLinks: number;
   totalClicks: number;
-  topLinks: { sUrl: string; clicks: number }[];
+  topShortUrls: { key: string; value: number }[];
 }
 
 export const api = {
   async getAllShortLinks(): Promise<ShortLink[]> {
-    const res = await fetch(`${BASE_URL}/sas/adress/sUrls`);
+    const res = await fetch(`${BASE_URL}/sas/adress/sUrls/detail`);
     if (!res.ok) return [];
     const data = await res.json();
-    if (Array.isArray(data.result)) {
-      return data.result;
+    if (data.result && Array.isArray(data.result)) {
+      return data.result.map((link: any) => ({
+        sUrl: link.sUrl,
+        lUrl: link.lUrl || '',
+        owner: link.owner,
+        price: link.price,
+        sell: link.isSell,
+        expiresAt: link.expirationTime,
+        clicks: link.clicks,
+      }));
     }
-    return Array.isArray(data.links) ? data.links : [];
+    return [];
   },
 
   async getStats(): Promise<Stats> {
     const res = await fetch(`${BASE_URL}/sas/stats`);
-    if (!res.ok) return { totalLinks: 0, totalClicks: 0, topLinks: [] };
-    return await res.json();
+    if (!res.ok) return { totalLinks: 0, totalClicks: 0, topShortUrls: [] };
+    const data = await res.json();
+    return {
+      totalLinks: data.totalLinks || 0,
+      totalClicks: data.totalClicks || 0,
+      topShortUrls: data.topShortUrls || [],
+    };
   },
 
   async getLongUrl(sUrl: string): Promise<string> {
     const res = await fetch(`${BASE_URL}/sas/adress/${sUrl}/lUrl`);
     if (!res.ok) return '';
     const data = await res.json();
-    return data.result || '';
+    return data.lUrl || '';
   },
 
   async getLinksByOwner(owner: string): Promise<ShortLink[]> {
     if (!owner) return [];
-    const links = await this.getAllShortLinks();
-    return links.filter((link) => link.owner === owner);
+    const res = await fetch(`${BASE_URL}/sas/adress/owner/${owner}`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    if (data.result && Array.isArray(data.result)) {
+      return data.result.map((link: any) => ({
+        sUrl: link.sUrl,
+        lUrl: link.lUrl || '',
+        owner: link.owner,
+        price: link.price,
+        sell: link.isSell,
+        expiresAt: link.expirationTime,
+        clicks: link.clicks,
+      }));
+    }
+    return [];
   },
 
-  // Note: These would require wallet integration in a real app
-  // For now we define the structure
   async buyShortLink(sUrl: string, amount: string, owner: string) {
-    // POST /sas/adress
   },
 
   async setLongUrl(sUrl: string, lUrl: string, owner: string) {
-    // PUT /sas/adress/lUrl
   }
 };

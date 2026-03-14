@@ -23,6 +23,8 @@ const (
 // RegisterRoutes - Central function to define routes that get registered by the main application
 func RegisterRoutes(cliCtx context.CLIContext, r *mux.Router, cdc *codec.Codec, storeName string) {
 	r.HandleFunc(fmt.Sprintf("/%s/adress/sUrls", storeName), sUrlsHandler(cdc, cliCtx, storeName)).Methods("GET")
+	r.HandleFunc(fmt.Sprintf("/%s/adress/sUrls/detail", storeName), sUrlsDetailHandler(cdc, cliCtx, storeName)).Methods("GET")
+	r.HandleFunc(fmt.Sprintf("/%s/adress/owner/{owner}", storeName), ownerUrlsHandler(cdc, cliCtx, storeName)).Methods("GET")
 	r.HandleFunc(fmt.Sprintf("/%s/adress", storeName), buySUrlHandler(cdc, cliCtx)).Methods("POST")
 	r.HandleFunc(fmt.Sprintf("/%s/adress/lUrl", storeName), setLUrlHandler(cdc, cliCtx)).Methods("PUT")
 	r.HandleFunc(fmt.Sprintf("/%s/adress/price", storeName), setPriceHandler(cdc, cliCtx)).Methods("PUT")
@@ -241,6 +243,132 @@ func sUrlsHandler(cdc *codec.Codec, cliCtx context.CLIContext, storeName string)
 			return
 		}
 		rest.PostProcessResponse(w, cdc, res, cliCtx.Indent)
+	}
+}
+
+type SUrlDetail struct {
+	SUrl          string `json:"sUrl"`
+	LUrl          string `json:"lUrl"`
+	Owner         string `json:"owner"`
+	Price         string `json:"price"`
+	IsSell        bool   `json:"isSell"`
+	ExpirationTime string `json:"expirationTime"`
+	Clicks        uint64 `json:"clicks"`
+}
+
+type SUrlDetailResponse struct {
+	Result []SUrlDetail `json:"result"`
+}
+
+func sUrlsDetailHandler(cdc *codec.Codec, cliCtx context.CLIContext, storeName string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		res, err := cliCtx.QueryWithData(fmt.Sprintf("custom/%s/SUrls", storeName), nil)
+		if err != nil {
+			rest.WriteErrorResponse(w, http.StatusNotFound, err.Error())
+			return
+		}
+
+		var pageRes struct {
+			SUrls []string `json:"sUrls"`
+		}
+		if err := cdc.UnmarshalJSON(res, &pageRes); err != nil {
+			rest.WriteErrorResponse(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		var details []SUrlDetail
+		for _, sUrl := range pageRes.SUrls {
+			lAddrRes, err := cliCtx.QueryWithData(fmt.Sprintf("custom/%s/LAddress/%s", storeName, sUrl), nil)
+			if err != nil || len(lAddrRes) == 0 {
+				continue
+			}
+
+			var lAddr struct {
+				LUrl           string `json:"lUrl"`
+				Owner          string `json:"owner"`
+				Price          string `json:"price"`
+				IsSell         bool   `json:"isSell"`
+				ExpirationTime string `json:"expirationTime"`
+				ClickCount     uint64 `json:"clickCount"`
+			}
+			if err := cdc.UnmarshalJSON(lAddrRes, &lAddr); err != nil {
+				continue
+			}
+
+			details = append(details, SUrlDetail{
+				SUrl:            sUrl,
+				LUrl:            lAddr.LUrl,
+				Owner:           lAddr.Owner,
+				Price:           lAddr.Price,
+				IsSell:          lAddr.IsSell,
+				ExpirationTime:  lAddr.ExpirationTime,
+				Clicks:          lAddr.ClickCount,
+			})
+		}
+
+		resp := SUrlDetailResponse{Result: details}
+		rest.PostProcessResponse(w, cdc, resp, cliCtx.Indent)
+	}
+}
+
+func ownerUrlsHandler(cdc *codec.Codec, cliCtx context.CLIContext, storeName string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		owner := vars["owner"]
+
+		if _, err := sdk.AccAddressFromBech32(owner); err != nil {
+			rest.WriteErrorResponse(w, http.StatusBadRequest, "invalid owner address")
+			return
+		}
+
+		res, err := cliCtx.QueryWithData(fmt.Sprintf("custom/%s/SUrls", storeName), nil)
+		if err != nil {
+			rest.WriteErrorResponse(w, http.StatusNotFound, err.Error())
+			return
+		}
+
+		var pageRes struct {
+			SUrls []string `json:"sUrls"`
+		}
+		if err := cdc.UnmarshalJSON(res, &pageRes); err != nil {
+			rest.WriteErrorResponse(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		var details []SUrlDetail
+		for _, sUrl := range pageRes.SUrls {
+			lAddrRes, err := cliCtx.QueryWithData(fmt.Sprintf("custom/%s/LAddress/%s", storeName, sUrl), nil)
+			if err != nil || len(lAddrRes) == 0 {
+				continue
+			}
+
+			var lAddr struct {
+				LUrl           string `json:"lUrl"`
+				Owner          string `json:"owner"`
+				Price          string `json:"price"`
+				IsSell         bool   `json:"isSell"`
+				ExpirationTime string `json:"expirationTime"`
+				ClickCount     uint64 `json:"clickCount"`
+			}
+			if err := cdc.UnmarshalJSON(lAddrRes, &lAddr); err != nil {
+				continue
+			}
+
+			if lAddr.Owner == owner {
+				details = append(details, SUrlDetail{
+					SUrl:            sUrl,
+					LUrl:            lAddr.LUrl,
+					Owner:           lAddr.Owner,
+					Price:           lAddr.Price,
+					IsSell:          lAddr.IsSell,
+					ExpirationTime:  lAddr.ExpirationTime,
+					Clicks:          lAddr.ClickCount,
+				})
+			}
+		}
+
+		resp := SUrlDetailResponse{Result: details}
+		rest.PostProcessResponse(w, cdc, resp, cliCtx.Indent)
 	}
 }
 

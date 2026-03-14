@@ -46,7 +46,8 @@ func NewBlackList() BlackList {
 }
 
 type Stats struct {
-	TotalClicks  uint64            `json:"totalClicks"`
+	TotalLinks  uint64            `json:"totalLinks"`
+	TotalClicks uint64            `json:"totalClicks"`
 	DailyClicks  map[string]uint64 `json:"dailyClicks"`
 	TopShortURLs []StatEntry       `json:"topShortUrls"`
 	TopOwners    []StatEntry       `json:"topOwners"`
@@ -59,6 +60,7 @@ type StatEntry struct {
 
 func NewStats() Stats {
 	return Stats{
+		TotalLinks:   0,
 		TotalClicks:  0,
 		DailyClicks:  make(map[string]uint64),
 		TopShortURLs: make([]StatEntry, 0),
