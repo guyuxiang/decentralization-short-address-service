@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -32,14 +33,14 @@ func RegisterRoutes(cliCtx context.CLIContext, r *mux.Router, cdc *codec.Codec, 
 	r.HandleFunc(fmt.Sprintf("/%s/adress/{%s}/lUrl", storeName, restName), lUrlHandler(cdc, cliCtx, storeName)).Methods("GET")
 	r.HandleFunc(fmt.Sprintf("/%s/adress/{%s}/lAddress", storeName, restName), lAddressHandler(cdc, cliCtx, storeName)).Methods("GET")
 
-	// Redirect route -访问短地址自动跳转长地址
-	r.HandleFunc("/{sUrl}", redirectHandler(cliCtx, storeName, cdc)).Methods("GET")
+	// Faucet route -领取测试代币
+	r.HandleFunc(fmt.Sprintf("/%s/faucet", storeName), faucetHandler(cdc, cliCtx)).Methods("POST")
 
 	// Stats route
 	r.HandleFunc(fmt.Sprintf("/%s/stats", storeName), statsHandler(cdc, cliCtx, storeName)).Methods("GET")
 
-	// Faucet route -领取测试代币
-	r.HandleFunc(fmt.Sprintf("/%s/faucet", storeName), faucetHandler(cdc, cliCtx)).Methods("POST")
+	// Redirect route -访问短地址自动跳转长地址
+	r.HandleFunc("/{sUrl}", redirectHandler(cliCtx, storeName, cdc)).Methods("GET")
 }
 
 type buySUrlReq struct {
@@ -430,7 +431,7 @@ func faucetHandler(cdc *codec.Codec, cliCtx context.CLIContext) http.HandlerFunc
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req faucetReq
-		if err := cdc.UnmarshalJSON([]byte(r.FormValue("data")), &req); err != nil {
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			rest.WriteErrorResponse(w, http.StatusBadRequest, err.Error())
 			return
 		}
