@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:80';
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:80';
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,4 +19,8 @@ export async function POST(request: NextRequest) {
     console.error('Faucet API error:', error);
     return NextResponse.json({ error: 'Backend service unavailable' }, { status: 500 });
   }
+}
+
+export async function GET() {
+  return NextResponse.json({ message: 'Faucet API is running' });
 }
