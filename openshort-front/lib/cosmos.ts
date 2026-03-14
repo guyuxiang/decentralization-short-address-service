@@ -10,7 +10,7 @@ interface BroadcastTxResponse {
 }
 
 export const CHAIN_ID = process.env.NEXT_PUBLIC_CHAIN_ID || 'openshort';
-export const RPC_ENDPOINT = process.env.NEXT_PUBLIC_RPC_ENDPOINT || '/api/cosmos';
+export const RPC_ENDPOINT = process.env.NEXT_PUBLIC_RPC_ENDPOINT || 'http://43.167.195.109:26657';
 export const REST_ENDPOINT = process.env.NEXT_PUBLIC_REST_ENDPOINT || 'http://localhost:80';
 
 const STAKE_CURRENCY = {
