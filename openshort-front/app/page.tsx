@@ -86,7 +86,11 @@ const ChainInfoPanel = ({ walletAddress }: { walletAddress: string | null }) => 
     const fetchChainData = async () => {
       try {
         const [blockRes, statsRes] = await Promise.all([
-          fetch('/api/cosmos/status'),
+          fetch('/api/cosmos', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ method: 'status', params: [] })
+          }),
           fetch('/api/sas/stats')
         ]);
 
