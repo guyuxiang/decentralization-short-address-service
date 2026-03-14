@@ -193,7 +193,7 @@ const ChainInfoPanel = ({ walletAddress }: { walletAddress: string | null }) => 
             {faucetLoading ? 'Claiming...' : 'Get Free OS Tokens'}
           </button>
         )}
-        <p className="text-xs text-[#94a3b8] text-center mt-2">Claim testnet tokens from faucet</p>
+        <p className="text-xs text-[#94a3b8] text-center mt-2">Claim tokens from faucet</p>
       </div>
     </Card>
   );
