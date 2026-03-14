@@ -1,9 +1,12 @@
 package rest
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/cosmos/cosmos-sdk/client/context"
@@ -15,6 +18,9 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/rest"
 
 	"github.com/gorilla/mux"
+	
+	"github.com/tendermint/tendermint/crypto"
+	"github.com/tendermint/tendermint/crypto/secp256k1"
 )
 
 const (
@@ -428,7 +434,7 @@ type faucetResp struct {
 
 func faucetHandler(cdc *codec.Codec, cliCtx context.CLIContext) http.HandlerFunc {
 	faucetAmount := "1000os"
-
+	
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req faucetReq
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -441,13 +447,107 @@ func faucetHandler(cdc *codec.Codec, cliCtx context.CLIContext) http.HandlerFunc
 			return
 		}
 
-		_, err := sdk.AccAddressFromBech32(req.Address)
+		toAddr, err := sdk.AccAddressFromBech32(req.Address)
 		if err != nil {
 			rest.WriteErrorResponse(w, http.StatusBadRequest, "invalid address format")
 			return
 		}
 
-		resp := faucetResp{Success: true, Message: fmt.Sprintf("Faucet configured! Address %s will receive %s. Use the frontend to create short links and earn tokens.", req.Address, faucetAmount)}
+		faucetAddr := os.Getenv("FAUCET_ADDRESS")
+		if faucetAddr == "" {
+			faucetAddr = "cosmos1utz6mucemw5twtmjwxutja82fdeqc59awf4z8t"
+		}
+		
+		faucetPrivKey := os.Getenv("FAUCET_PRIVATE_KEY")
+
+		// Get faucet account
+		faucetAccAddr, err := sdk.AccAddressFromBech32(faucetAddr)
+		if err != nil {
+			resp := faucetResp{Success: false, Message: "Invalid faucet address"}
+			rest.PostProcessResponse(w, cdc, resp, cliCtx.Indent)
+			return
+		}
+
+		coins, err := sdk.ParseCoins(faucetAmount)
+		if err != nil {
+			resp := faucetResp{Success: false, Message: "Invalid faucet amount"}
+			rest.PostProcessResponse(w, cdc, resp, cliCtx.Indent)
+			return
+		}
+
+		msg := sdk.NewMsgSend(faucetAccAddr, toAddr, coins)
+
+		// If private key is provided, sign and broadcast
+		if faucetPrivKey != "" && len(faucetPrivKey) == 64 {
+			// Get account info from node
+			acc, err := cliCtx.GetAccount(faucetAccAddr)
+			var accNum, seq uint64
+			if err == nil && acc != nil {
+				accNum = acc.GetAccountNumber()
+				seq = acc.GetSequence()
+			}
+			
+			// Decode private key
+			privKeyBytes, err := hex.DecodeString(faucetPrivKey)
+			if err != nil {
+				resp := faucetResp{Success: false, Message: fmt.Sprintf("Invalid private key: %v", err)}
+				rest.PostProcessResponse(w, cdc, resp, cliCtx.Indent)
+				return
+			}
+			
+			var privKey secp256k1.PrivKey
+			copy(privKey[:], privKeyBytes[:32])
+			pubKey := privKey.PubKey()
+
+			// Build transaction
+			txBuilder := cliCtx.NewTxBuilder()
+			txBuilder.SetMsgs(msg)
+			txBuilder.SetFeeAmount(sdk.NewCoins(sdk.NewCoin("uos", sdk.NewInt(1000))))
+			txBuilder.SetGasLimit(200000)
+			txBuilder.SetMemo("faucet")
+			txBuilder.SetPubKey(pubKey)
+			txBuilder.SetAccountNumber(accNum)
+			txBuilder.SetSequence(seq)
+
+			// Sign
+			txBuilder.SetChainID("test-chain")
+			tx, err := txBuilder.GetTx().ValidateBasic()
+			if err != nil {
+				resp := faucetResp{Success: false, Message: fmt.Sprintf("Invalid tx: %v", err)}
+				rest.PostProcessResponse(w, cdc, resp, cliCtx.Indent)
+				return
+			}
+
+			// Sign with the private key
+			signerData := sdk.SignerData{
+				ChainID:       "test-chain",
+				AccountNumber: accNum,
+				Sequence:      seq,
+			}
+			
+			txBytes, err := cliCtx.SignStdTx("", faucetAddr, txBuilder.GetTx(), false)
+			if err != nil {
+				// Fallback: try direct broadcast
+				resp := faucetResp{Success: false, Message: fmt.Sprintf("Please configure faucet with proper key: %v", err)}
+				rest.PostProcessResponse(w, cdc, resp, cliCtx.Indent)
+				return
+			}
+
+			// Broadcast
+			res, err := cliCtx.BroadcastTx(txBytes)
+			if err != nil {
+				resp := faucetResp{Success: false, Message: fmt.Sprintf("Broadcast failed: %v", err)}
+				rest.PostProcessResponse(w, cdc, resp, cliCtx.Indent)
+				return
+			}
+
+			resp := faucetResp{Success: true, Message: fmt.Sprintf("Sent %s to %s", faucetAmount, req.Address), TxHash: res.TxHash}
+			rest.PostProcessResponse(w, cdc, resp, cliCtx.Indent)
+			return
+		}
+
+		// Without private key, return info
+		resp := faucetResp{Success: true, Message: fmt.Sprintf("Faucet account: %s. Configure FAUCET_PRIVATE_KEY env to enable transfers.", faucetAddr)}
 		rest.PostProcessResponse(w, cdc, resp, cliCtx.Indent)
 	}
 }
