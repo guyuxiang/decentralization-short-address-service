@@ -1,5 +1,5 @@
 import { AminoMsg, OfflineAminoSigner } from '@cosmjs/amino';
-import { SigningStargateClient, StdFee } from '@cosmjs/stargate';
+import { SigningStargateClient, StdFee, SigningStargateClientOptions } from '@cosmjs/stargate';
 import { ChainInfo, Keplr } from '@keplr-wallet/types';
 
 interface BroadcastTxResponse {
@@ -109,7 +109,7 @@ export async function connectKeplrWallet(): Promise<WalletConnection> {
     return cachedConnection;
   }
   
-  const client = await SigningStargateClient.connect(RPC_WS_ENDPOINT) as any;
+  const client = await SigningStargateClient.offline(signer) as any;
   cachedConnection = {
     client,
     address: accounts[0].address,
