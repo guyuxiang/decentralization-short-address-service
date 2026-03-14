@@ -159,6 +159,19 @@ const ChainInfoPanel = () => {
           <span>Connected to OpenShort Network</span>
         </div>
       </div>
+
+      <div className="mt-4">
+        <button 
+          onClick={() => window.open('https://faucet.openshort.io', '_blank')}
+          className="w-full py-3 bg-gradient-to-r from-[#f27d26] to-[#ff8c42] text-white font-bold rounded-xl hover:from-[#e06c15] hover:to-[#f27d26] transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#f27d26]/20"
+        >
+          <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5">
+            <path d="M12 2v6m0 0L9 5m3 3l3-3M5 12h14M12 16v6m0 0l-3-3m3 3l3 3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          Get Free OS Tokens
+        </button>
+        <p className="text-xs text-[#94a3b8] text-center mt-2">Claim testnet tokens from faucet</p>
+      </div>
     </Card>
   );
 };
